@@ -1,0 +1,50 @@
+[
+{
+"model": "ar:gwG7w4bY-A5c3R6A6GOz3xBCgbPvkFQmqPIDtvnNsYI",
+"file": "avatars/robert.glb",
+"name": "Robert",
+"i": 3
+},
+{
+"model": "ar:fqZDwToo41u1a7VnHhZX1BTK5lktXpK_H6H20MVbPqQ",
+"file": "avatars/amazonas.glb",
+"name": "Amazonas",
+"i": 13
+},
+{
+"model": "ar:MgsNlTetzAoVEC6E-lswj65vp7StkOZXXd5OjjqzYZI",
+"file": "avatars/olivia.glb",
+"name": "Olivia",
+"i": 19
+},
+{
+"model": "ar:KbaYR3YmtjweLgEcJAWekeh3MNAlF9ZWOYJkbNfi8MM",
+"file": "avatars/teddy.glb",
+"name": "Teddy",
+"i": 38
+},
+{
+"model": "ar:T0c0z_XEPQHy3vyXz31XB22s_6JTqHdnau8exq_I8tI",
+"file": "avatars/astronaut.glb",
+"name": "Astronaut",
+"i": 42
+},
+{
+"model": "ar:0YLwWzDkvVWn9ttv2RAdc8bvWcCBjvYPpu7fpjpHYU0",
+"file": "avatars/witch.glb",
+"name": "Witch",
+"i": 46
+},
+{
+"model": "ar:1q4IQwLQXJVS0JGSpeXlRdazmZYdwJbmLbTv7o0s5Y8",
+"file": "avatars/kate.glb",
+"name": "Kate",
+"i": 49
+},
+{
+"model": "ar:H3cBhsOEoiQ8XZiwG31SyCUtiDewBZRccxIDztyHfSY",
+"file": "avatars/david.glb",
+"name": "David",
+"i": 88
+}
+]

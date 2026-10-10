@@ -1,0 +1,667 @@
+/* Base: theme variables, page layout, menu bar, stage, bottom bar, floating windows, widgets. Single dark look.
+   Feature styles live in their own files. */
+:root {
+  /* the bottom bar; windows, chat and touch controls sit above it */
+  --bar-h: 32px;
+  --dkgray: #202020;
+  --dkgray2: #2b2b2b;
+  --dkgray66: rgba(32, 32, 32, 0.72);
+  --ltgray: #bfbfbf;
+  --mdgray: #8a8a8a;
+  --white: #ffffff;
+  --emph: #4dd1ff;
+  --emph-dim: #2a8fbf;
+  --textbg: #1a1a1a;
+  --textbg-ro: rgba(255, 255, 255, 0.05);
+  --line: #3c3c3c;
+  --line-hi: #4a4a4a;
+  --btn: #3a3a3a;
+  --btn-hi: #4a4a4a;
+  --btn-sel: #545454;
+  --sel-tab: #363636;
+  --card: #303030;
+  --x: #e03c2f;
+  --y: #3fbf3f;
+  --z: #3f7fe0;
+  --sil-root: #ffd84a;
+  --sil-child: #3f8fe0;
+  --pre: #ffa94d;
+  --ok: #5cc86a;
+  --warn: #e8b33c;
+  --bad: #e8584c;
+  --sky-top: #8db2d9;
+  --sky-bot: #dfe7ee;
+  --ground: #9fa37a;
+  --grid: #8d9169;
+  --grid-major: #73774f;
+  --f: "Noto Sans", "DejaVu Sans", Verdana, system-ui, sans-serif;
+  --fm: "DejaVu Sans Mono", ui-monospace, Menlo, monospace;
+  color-scheme: dark;
+}
+html,
+body {
+  height: 100%;
+}
+body {
+  background: var(--dkgray);
+  color: var(--ltgray);
+  font-family: var(--f);
+  font-size: 11.5px;
+  line-height: 1.3;
+  overflow: hidden;
+  user-select: none;
+}
+button,
+input,
+select {
+  font: inherit;
+  color: inherit;
+}
+:focus-visible {
+  outline: 1px solid var(--emph);
+  outline-offset: 1px;
+}
+#app {
+  position: relative;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+.work {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: row;
+  position: relative;
+}
+kbd {
+  font-family: var(--f);
+  font-size: 10.5px;
+  border: 1px solid var(--line-hi);
+  border-bottom-width: 2px;
+  border-radius: 3px;
+  padding: 0 4px;
+  background: #333;
+  color: var(--white);
+}
+
+/* menu bar */
+.menubar {
+  display: flex;
+  align-items: stretch;
+  background: var(--dkgray2);
+  border-bottom: 1px solid #000;
+  height: 24px;
+  flex: none;
+  position: relative;
+  z-index: 30;
+  padding: 0 4px;
+}
+.menubar > .m {
+  position: relative;
+}
+.menubar > .m > button {
+  border: 0;
+  background: none;
+  padding: 0 9px;
+  height: 24px;
+  color: var(--ltgray);
+  cursor: default;
+}
+.menubar > .m > button:hover,
+.menubar > .m.open > button {
+  background: var(--btn-hi);
+  color: var(--white);
+}
+.menu {
+  position: absolute;
+  top: 24px;
+  left: 0;
+  min-width: 240px;
+  background: var(--dkgray2);
+  border: 1px solid #000;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.6);
+  padding: 3px 0;
+  display: none;
+}
+.m.open .menu {
+  display: block;
+}
+.menu button {
+  display: flex;
+  width: 100%;
+  justify-content: space-between;
+  gap: 16px;
+  border: 0;
+  background: none;
+  text-align: left;
+  padding: 3px 24px 3px 12px;
+  color: var(--ltgray);
+  cursor: default;
+  white-space: nowrap;
+}
+.menu button:hover {
+  background: var(--emph-dim);
+  color: var(--white);
+}
+.menu button:disabled {
+  color: var(--mdgray);
+}
+.menu button:disabled:hover {
+  background: none;
+}
+.menu .sep {
+  height: 1px;
+  background: var(--line);
+  margin: 3px 0;
+}
+.menu kbd {
+  border: 0;
+  background: none;
+  padding: 0;
+  font-size: 11px;
+  color: var(--mdgray);
+}
+.menubar .brand {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 6px;
+  color: var(--mdgray);
+}
+.menubar .brand b {
+  color: var(--ltgray);
+  font-weight: 400;
+}
+/* always in view: this is a prototype */
+.menubar .brand .experimental {
+  padding: 1px 6px;
+  border: 1px solid var(--warn);
+  border-radius: 3px;
+  color: var(--warn);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+/* stage */
+.stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  background: linear-gradient(to bottom, var(--sky-top), var(--sky-bot) 70%);
+}
+#view {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+  outline: none;
+}
+
+.toast {
+  position: absolute;
+  left: 50%;
+  top: 10px;
+  transform: translateX(-50%);
+  max-width: min(560px, calc(100% - 32px));
+  background: var(--dkgray2);
+  border: 1px solid #000;
+  color: var(--white);
+  padding: 5px 12px;
+  font-size: 12px;
+  z-index: 60;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.5);
+  text-align: center;
+}
+.toast button {
+  margin-left: 8px;
+}
+
+/* bottom bar */
+.bottombar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--bar-h);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 8px;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  background: var(--dkgray2);
+  border-top: 1px solid #000;
+  z-index: 20;
+}
+.tbtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 10px;
+  border: 1px solid #111;
+  background: linear-gradient(var(--btn-hi), var(--btn));
+  color: var(--ltgray);
+  cursor: default;
+  border-radius: 2px;
+}
+.tbtn svg {
+  width: 16px;
+  height: 16px;
+}
+.tbtn[aria-pressed="true"] {
+  background: var(--btn-sel);
+  color: var(--white);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+.tbtn:hover {
+  color: var(--white);
+}
+.bottombar .stats {
+  margin-left: auto;
+  font-family: var(--fm);
+  font-size: 10.5px;
+  color: var(--mdgray);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+/* floaters */
+.floater {
+  position: absolute;
+  background: var(--dkgray2);
+  border: 1px solid #000;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.55);
+  display: flex;
+  flex-direction: column;
+  /* above the chat and the touch controls, so a window can always be read in full; below the bar and the pie */
+  z-index: 16;
+  min-width: 0;
+}
+.floater.focus {
+  z-index: 17;
+}
+.fhead {
+  display: flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 4px 0 8px;
+  background: #1b1b1b;
+  border-bottom: 1px solid #000;
+  cursor: move;
+  flex: none;
+  gap: 6px;
+}
+.fhead .ft {
+  flex: 1;
+  color: var(--ltgray);
+  font-weight: 700;
+  font-size: 11.5px;
+}
+.fhead button.x {
+  width: 18px;
+  height: 18px;
+  border: 0;
+  background: none;
+  color: var(--mdgray);
+  cursor: default;
+  display: grid;
+  place-items: center;
+  padding: 0;
+}
+.fhead button.x:hover {
+  color: var(--white);
+}
+.fhead button.x svg {
+  width: 10px;
+  height: 10px;
+}
+.fbody {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+
+/* widgets */
+.btn {
+  height: 20px;
+  padding: 0 8px;
+  border: 1px solid #111;
+  border-radius: 2px;
+  background: linear-gradient(var(--btn-hi), var(--btn));
+  color: var(--ltgray);
+  cursor: default;
+  white-space: nowrap;
+}
+.btn:hover {
+  color: var(--white);
+  background: linear-gradient(#555, #444);
+}
+.btn:active,
+.btn[aria-pressed="true"] {
+  background: var(--btn-sel);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.6);
+  color: var(--white);
+}
+.btn:disabled {
+  color: var(--mdgray);
+  background: var(--btn);
+}
+.btn.small {
+  height: 18px;
+  padding: 0 6px;
+  font-size: 11px;
+}
+.btn.primary {
+  background: linear-gradient(#2f7fae, #24678e);
+  color: #fff;
+  border-color: #0b2a3b;
+}
+.btn.primary:hover {
+  background: linear-gradient(#3a90c2, #2b74a0);
+}
+.ibtn {
+  width: 38px;
+  height: 38px;
+  border: 1px solid #111;
+  border-radius: 3px;
+  background: linear-gradient(#444, #333);
+  color: var(--ltgray);
+  display: grid;
+  place-items: center;
+  cursor: default;
+  padding: 0;
+}
+.ibtn svg {
+  width: 24px;
+  height: 24px;
+}
+.ibtn:hover {
+  color: var(--white);
+}
+.ibtn[aria-pressed="true"] {
+  background: var(--btn-sel);
+  box-shadow:
+    inset 0 0 0 1px var(--emph),
+    inset 0 1px 4px rgba(0, 0, 0, 0.7);
+  color: var(--white);
+}
+.radio,
+.check {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: default;
+  white-space: nowrap;
+  color: var(--ltgray);
+}
+.radio input,
+.check input {
+  width: 12px;
+  height: 12px;
+  margin: 0;
+  accent-color: var(--emph);
+  flex: none;
+}
+.radio:hover,
+.check:hover {
+  color: var(--white);
+}
+select.cb {
+  height: 20px;
+  border: 1px solid #111;
+  background: var(--btn);
+  color: var(--ltgray);
+  padding: 0 4px;
+  border-radius: 2px;
+  min-width: 0;
+}
+input.tf {
+  height: 20px;
+  border: 1px solid #111;
+  background: var(--textbg);
+  color: var(--white);
+  padding: 0 5px;
+  min-width: 0;
+  width: 100%;
+  font-size: 11.5px;
+}
+.seg {
+  display: flex;
+  border: 1px solid #111;
+  border-radius: 3px;
+  overflow: hidden;
+}
+.seg button {
+  flex: 1;
+  border: 0;
+  border-right: 1px solid #111;
+  background: linear-gradient(#3d3d3d, #333);
+  color: var(--ltgray);
+  padding: 3px 4px;
+  font-size: 11px;
+  cursor: default;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  min-width: 0;
+}
+.seg button:last-child {
+  border-right: 0;
+}
+.seg button small {
+  font-size: 9.5px;
+  color: var(--mdgray);
+}
+.seg button:hover {
+  color: var(--white);
+}
+.seg button[aria-pressed="true"] {
+  background: var(--btn-sel);
+  color: var(--white);
+  box-shadow: inset 0 -2px 0 var(--emph);
+}
+.spin {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+}
+.spin > label {
+  min-width: 12px;
+  text-align: right;
+  color: var(--ltgray);
+  cursor: ew-resize;
+  user-select: none;
+  touch-action: none;
+  white-space: nowrap;
+}
+.spin > label.ax0 {
+  color: var(--x);
+}
+.spin > label.ax1 {
+  color: var(--y);
+}
+.spin > label.ax2 {
+  color: var(--z);
+}
+.spin .arr {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: none;
+}
+.spin .arr button {
+  width: 11px;
+  height: 9px;
+  padding: 0;
+  border: 1px solid #111;
+  background: var(--btn);
+  color: var(--ltgray);
+  display: grid;
+  place-items: center;
+  cursor: default;
+  line-height: 0;
+}
+.spin .arr button:hover {
+  background: var(--btn-hi);
+  color: var(--white);
+}
+.spin .arr svg {
+  width: 7px;
+  height: 5px;
+}
+.spin input {
+  height: 19px;
+  border: 1px solid #111;
+  background: var(--textbg);
+  color: var(--white);
+  font-family: var(--fm);
+  font-size: 11px;
+  padding: 0 4px;
+  width: 100%;
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+}
+.spin input:focus {
+  outline: 1px solid var(--emph);
+}
+.spin.dis {
+  opacity: 0.4;
+  pointer-events: none;
+}
+.swatch {
+  width: 28px;
+  height: 20px;
+  border: 1px solid #111;
+  cursor: default;
+  padding: 0;
+  position: relative;
+  overflow: hidden;
+  background: #888;
+  flex: none;
+}
+.swatch input {
+  position: absolute;
+  inset: -6px;
+  width: 200%;
+  height: 200%;
+  opacity: 0;
+  cursor: default;
+}
+.note {
+  color: var(--mdgray);
+  font-size: 10.5px;
+  line-height: 1.4;
+}
+
+@media (max-width: 760px) {
+  .bottombar .stats {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+  }
+}
+.ibtn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* the start screen: the privacy note and terms, accepted before anything else */
+.terms-veil {
+  position: fixed;
+  inset: 0;
+  z-index: 110;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.6);
+}
+.terms-card {
+  display: flex;
+  flex-direction: column;
+  width: min(560px, calc(100vw - 32px));
+  /* the veil's grid row is auto-sized, so a percentage would not do: against the viewport instead */
+  max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px);
+  box-sizing: border-box;
+  padding: 18px 18px 16px;
+  background: var(--dkgray2);
+  border: 1px solid #000;
+  border-top: 3px solid var(--emph);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.7);
+  color: var(--ltgray);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.terms-card h2 {
+  margin: 0 0 8px;
+  color: var(--white);
+  font-size: 17px;
+}
+.terms-lead {
+  margin: 0 0 10px;
+  color: var(--white);
+}
+.terms-text {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--textbg);
+}
+.terms-text h4,
+.help .privacy h4 {
+  margin: 8px 0 2px;
+  font-size: 12.5px;
+  color: var(--white);
+}
+.terms-text p,
+.terms-text ul,
+.help .privacy p,
+.help .privacy ul {
+  margin: 3px 0;
+}
+.terms-text ul,
+.help .privacy ul {
+  padding-left: 18px;
+}
+.terms-text code,
+.help .privacy code {
+  font-family: var(--fm);
+  font-size: 0.92em;
+  color: var(--white);
+  word-break: break-all;
+}
+.terms-date {
+  color: var(--mdgray);
+  font-size: 11px;
+}
+.terms-card .btn {
+  width: 100%;
+  height: 40px;
+  margin-top: 8px;
+  font-size: 14px;
+}
+.terms-card .btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.terms-adult {
+  margin-top: 10px;
+  color: var(--white);
+  font-size: 14px;
+}

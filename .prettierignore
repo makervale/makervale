@@ -1,0 +1,6 @@
+dist
+old
+old-test
+node_modules
+assets
+*.json

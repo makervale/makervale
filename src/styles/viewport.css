@@ -1,0 +1,199 @@
+/* The 3D view: cursor shapes, the value badge, the box-select rectangle, the active tool's chip,
+   and the camera controls window. */
+
+/* cursor shapes over the canvas (set by viewport-input) */
+#view.c-zoom {
+  cursor: zoom-in;
+}
+#view.c-orbit {
+  cursor: grab;
+}
+#view.c-pan {
+  cursor: move;
+}
+#view.c-no {
+  cursor: not-allowed;
+}
+#view.c-place {
+  cursor: crosshair;
+}
+#view.c-handle {
+  cursor: pointer;
+}
+#view.c-elem {
+  cursor: crosshair;
+}
+#view.c-touch {
+  cursor: pointer;
+}
+
+/* the value next to the cursor while dragging or adjusting (manipulators, live-tool) */
+.badge {
+  position: absolute;
+  pointer-events: none;
+  font-family: var(--fm);
+  font-size: 11px;
+  background: rgba(0, 0, 0, 0.75);
+  color: var(--white);
+  border: 1px solid var(--line-hi);
+  padding: 2px 6px;
+  white-space: nowrap;
+  transform: translate(16px, 16px);
+  display: none;
+  z-index: 3;
+}
+.badge.snap {
+  border-color: var(--sil-root);
+  color: var(--sil-root);
+}
+
+/* box selection */
+.rubber {
+  position: absolute;
+  border: 1px dashed #fff;
+  background: rgba(77, 209, 255, 0.12);
+  pointer-events: none;
+  display: none;
+  z-index: 3;
+}
+
+/* what the active tool does with the mouse and keys (live-tool) */
+.modechip {
+  position: absolute;
+  left: 50%;
+  top: 10px;
+  transform: translateX(-50%);
+  background: var(--dkgray66);
+  border: 1px solid rgba(0, 0, 0, 0.5);
+  color: var(--white);
+  padding: 3px 10px;
+  font-size: 11.5px;
+  pointer-events: none;
+  z-index: 2;
+  white-space: nowrap;
+}
+.modechip b {
+  color: var(--emph);
+  font-weight: 700;
+}
+
+/* camera controls window */
+#camfl {
+  right: 10px;
+  bottom: calc(var(--bar-h) + 12px);
+  width: 210px;
+}
+.camgrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 34px;
+  gap: 8px;
+  padding: 8px;
+  align-items: center;
+}
+.pad {
+  position: relative;
+  aspect-ratio: 1;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  border-radius: 50%;
+  background: radial-gradient(#3a3a3a, #262626);
+  border: 1px solid #111;
+}
+.pad b {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 18px;
+  height: 18px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: #555;
+  border: 1px solid #111;
+}
+.pad button {
+  position: absolute;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  background: none;
+  color: var(--ltgray);
+  display: grid;
+  place-items: center;
+  cursor: default;
+  padding: 0;
+}
+.pad button:hover {
+  color: var(--white);
+}
+.pad button svg {
+  width: 14px;
+  height: 14px;
+}
+.pad .n {
+  top: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.pad .s {
+  bottom: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.pad .w {
+  left: 2px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+.pad .e {
+  right: 2px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+.pad .cap {
+  position: absolute;
+  bottom: -14px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 10px;
+  color: var(--mdgray);
+}
+.zoomcol {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.zoomcol button {
+  width: 22px;
+  height: 22px;
+  border: 1px solid #111;
+  background: var(--btn);
+  color: var(--ltgray);
+  cursor: default;
+  padding: 0;
+  display: grid;
+  place-items: center;
+}
+.zoomcol input[type="range"] {
+  writing-mode: vertical-lr;
+  direction: rtl;
+  height: 52px;
+  width: 18px;
+  accent-color: var(--emph);
+  margin: 0;
+}
+.campresets {
+  display: flex;
+  gap: 4px;
+  padding: 16px 8px 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 760px) {
+  #camfl {
+    display: none;
+  }
+}

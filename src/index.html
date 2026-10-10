@@ -1,0 +1,62 @@
+<div id="app">
+  <nav class="menubar" id="menubar" aria-label="Menu"></nav>
+
+  <div class="work">
+    <main class="stage" id="stage">
+      <canvas id="view" tabindex="0" aria-label="3D scene view"></canvas>
+      <div class="badge" id="badge"></div>
+      <div class="rubber" id="rubber"></div>
+      <div class="modechip" id="modechip" hidden></div>
+
+      <div class="bottombar">
+        <button class="tbtn" data-win="build" aria-pressed="false">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M12 3 20 7.5v9L12 21 4 16.5v-9Z" />
+            <path d="M4 7.5 12 12l8-4.5M12 12v9" /></svg
+          >Build
+        </button>
+        <button class="tbtn" data-cat-toggle aria-pressed="false">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M4 5h6v14H4zM14 5h6v14h-6z" />
+            <path d="M6 9h2M6 12h2M16 9h2M16 12h2" /></svg
+          >Tools
+        </button>
+        <button class="tbtn" data-win="camfl" aria-pressed="false">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M4 8h3l2-2h6l2 2h3v10H4Z" />
+            <circle cx="12" cy="13" r="3" /></svg
+          >Camera
+        </button>
+        <button class="tbtn" data-win="mp" aria-pressed="false" title="Share a room with others">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <circle cx="8" cy="8" r="3" />
+            <circle cx="16.5" cy="9.5" r="2.5" />
+            <path
+              d="M2.5 19c.5-3.5 2.8-5.5 5.5-5.5s5 2 5.5 5.5M14 14.2c.8-.5 1.6-.7 2.5-.7 2.3 0 4.2 1.8 4.6 5.5"
+            /></svg
+          >Multiplayer<span class="count" hidden></span>
+        </button>
+        <button class="tbtn" data-win="avwin" aria-pressed="false" title="Your name and appearance">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <circle cx="12" cy="8" r="3.5" />
+            <path d="M5 20c.7-4 3.5-6.5 7-6.5s6.3 2.5 7 6.5" /></svg
+          >Avatar
+        </button>
+        <button class="tbtn" id="av-btn" title="Fly or land (Home)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <circle cx="12" cy="5" r="2.2" />
+            <path d="M12 8v6M8 21l4-7 4 7M6 11l6-2 6 2" /></svg
+          ><span>Fly</span>
+        </button>
+        <button class="tbtn" data-win="help" aria-pressed="false">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .8-1 1.5V14M12 17.5v.5" /></svg
+          >Help
+        </button>
+        <span class="stats" id="stats"></span>
+      </div>
+    </main>
+    <aside class="sidebar" id="catalog" aria-label="Tools"></aside>
+  </div>
+</div>

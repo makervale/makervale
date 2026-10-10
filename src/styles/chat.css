@@ -1,0 +1,150 @@
+/* chat, bottom left of the view: each line is its own readable bubble; old lines go away, hover or typing shows them all.
+   The input sits just above the bottom bar (and the phone's home indicator). */
+.chat {
+  position: absolute;
+  left: 12px;
+  bottom: calc(var(--bar-h) + 12px + env(safe-area-inset-bottom, 0px));
+  width: min(440px, calc(100% - 24px));
+  z-index: 12;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  pointer-events: none;
+}
+.chat-log {
+  max-height: min(32vh, 240px);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  pointer-events: auto;
+  user-select: text;
+  border-radius: 8px;
+  scrollbar-width: thin;
+}
+/* only when there is more than fits: the line cut through at the top fades out instead (lines that fit stay solid) */
+.chat-log.over {
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 24px);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 24px);
+}
+/* the whole history: while typing, or under the mouse (not on touch, where hover sticks after a tap) */
+.chat.open .chat-log {
+  overflow-y: auto;
+  max-height: min(45vh, 360px);
+  padding: 6px;
+  background: rgba(14, 16, 20, 0.6);
+  backdrop-filter: blur(4px);
+  /* a line scrolled half out at the top fades instead of looking cut off */
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 16px);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 16px);
+}
+@media (hover: hover) {
+  .chat:hover .chat-log {
+    overflow-y: auto;
+    max-height: min(45vh, 360px);
+    padding: 6px;
+    background: rgba(14, 16, 20, 0.6);
+    backdrop-filter: blur(4px);
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 16px);
+    mask-image: linear-gradient(to bottom, transparent 0, #000 16px);
+  }
+}
+.cl {
+  /* never squeezed: in the column a line that doesn't fit scrolls, it doesn't shrink into an empty sliver */
+  flex-shrink: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: rgba(14, 16, 20, 0.72);
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: #f2f2f2;
+  word-break: break-word;
+  transition:
+    opacity 0.6s,
+    max-height 0.6s,
+    padding 0.6s,
+    margin 0.6s;
+}
+.cl b {
+  font-weight: 700;
+  color: #8fdcff;
+  margin-right: 2px;
+}
+.cl.me b {
+  color: #ffe58a;
+}
+.cl.obj {
+  background: rgba(48, 38, 14, 0.8);
+}
+.cl.obj,
+.cl.obj b {
+  color: #f6dc96;
+}
+.cl.sys {
+  background: rgba(14, 16, 20, 0.5);
+  color: #bdbdbd;
+  font-style: italic;
+}
+.cl.old {
+  opacity: 0;
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  margin-top: -4px;
+  overflow: hidden;
+}
+.chat.open .cl.old {
+  opacity: 1;
+  max-height: none;
+  padding: 4px 10px;
+  margin-top: 0;
+}
+@media (hover: hover) {
+  .chat:hover .cl.old {
+    opacity: 1;
+    max-height: none;
+    padding: 4px 10px;
+    margin-top: 0;
+  }
+}
+.chat-say {
+  pointer-events: auto;
+  height: 32px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(14, 16, 20, 0.62);
+  color: #fff;
+  padding: 0 14px;
+  font: inherit;
+  font-size: 13px;
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+  backdrop-filter: blur(4px);
+}
+.chat-say::placeholder {
+  color: rgba(255, 255, 255, 0.55);
+}
+.chat-say:focus {
+  background: rgba(14, 16, 20, 0.88);
+  border-color: var(--emph-dim);
+}
+@media (max-width: 760px) {
+  .chat {
+    width: calc(100% - 20px);
+  }
+}
+/* with the Build window open on the left, chat moves out of its way */
+.stage:has(#build:not([hidden])) .chat {
+  left: 326px;
+  width: min(440px, calc(100% - 346px));
+}
+@media (max-width: 760px) {
+  .stage:has(#build:not([hidden])) .chat {
+    left: 10px;
+    width: calc(100% - 20px);
+  }
+}

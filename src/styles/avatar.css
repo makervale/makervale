@@ -1,0 +1,140 @@
+/* avatar window (its body also uses the multiplayer window's .mp, .mp-row and h4 styles) */
+#avwin {
+  right: 12px;
+  top: 60px;
+  width: 340px;
+  max-height: calc(100% - 120px);
+}
+#avwin .fbody {
+  overflow: auto;
+}
+.av-cur {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: space-between;
+  background: var(--textbg-ro);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 6px 8px;
+  margin: 6px 0;
+}
+.av-cur > div {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.av-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+  gap: 4px;
+  margin: 4px 0;
+}
+.av-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--textbg);
+  color: var(--ltgray);
+  font-size: 10px;
+  cursor: pointer;
+  min-width: 0;
+}
+.av-tile[aria-pressed="true"] {
+  border-color: var(--emph);
+  box-shadow: 0 0 0 1px var(--emph) inset;
+}
+.av-tile:hover {
+  border-color: var(--line-hi);
+  color: #fff;
+}
+.av-tile img,
+.av-tile .sp {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 3px;
+  background-color: #2a2a2a;
+  display: block;
+}
+.av-tile .letter {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-style: normal;
+  font-size: 26px;
+  color: var(--mdgray);
+}
+.av-tile span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.av-gest {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 4px 0;
+}
+.av a {
+  color: var(--emph);
+}
+
+/* the built-in figure's look */
+.mp-look {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px;
+  background: var(--dkgray);
+  border: 1px solid #111;
+}
+.mp-skin {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid #111;
+  padding: 0;
+  cursor: default;
+}
+.mp-skin[aria-pressed="true"] {
+  border-color: var(--emph);
+}
+.mp-sw {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  position: relative;
+  cursor: default;
+  color: var(--mdgray);
+  font-size: 10.5px;
+}
+.mp-sw span {
+  width: 20px;
+  height: 20px;
+  border: 1px solid #111;
+  border-radius: 3px;
+  display: block;
+}
+.mp-sw input {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 20px;
+  height: 20px;
+  opacity: 0;
+  cursor: pointer;
+}
+.mp-sw i {
+  font-style: normal;
+}
+.mp-look input[type="range"] {
+  flex: 1;
+  min-width: 0;
+  accent-color: var(--emph);
+}

@@ -1,0 +1,66 @@
+<!-- Converts a few of Overte's Apache-2.0 avatar animations (FBX, 30 fps, HiFi skeleton) into compact clips for
+     VRM-style "normalized" humanoid bones: every bone's rest is identity and world-aligned in a T-pose, Y up, facing +Z.
+     Run with: python3 tools/run_page.py http://localhost:8790/piaskownica-app/tools/convert-anims.html src/avatar/clips.json -->
+<script type="importmap">{"imports":{"three":"/piaskownica-app/node_modules/three/build/three.module.js","three/addons/":"/piaskownica-app/node_modules/three/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from 'three';
+import { FBXLoader } from './FBXLoader.patched.js';
+const base = '/overte-org/overte/interface/resources/avatar/animations/';
+const MAP = { Hips: 'hips', Spine: 'spine', Spine1: 'chest', Spine2: 'upperChest', Neck: 'neck', Head: 'head',
+  LeftShoulder: 'leftShoulder', LeftArm: 'leftUpperArm', LeftForeArm: 'leftLowerArm', LeftHand: 'leftHand',
+  RightShoulder: 'rightShoulder', RightArm: 'rightUpperArm', RightForeArm: 'rightLowerArm', RightHand: 'rightHand',
+  LeftUpLeg: 'leftUpperLeg', LeftLeg: 'leftLowerLeg', LeftFoot: 'leftFoot', RightUpLeg: 'rightUpperLeg', RightLeg: 'rightLowerLeg', RightFoot: 'rightFoot' };
+// name: [file, firstFrame, lastFrame, fps, loop]
+const CLIPS = {
+  idle: ['idle.fbx', 1, 300, 15, 1], walk: ['walk_fwd.fbx', 1, 30, 30, 1], walkBack: ['walk_bwd.fbx', 1, 37, 30, 1],
+  jog: ['jog_fwd.fbx', 1, 18, 30, 1], run: ['run_fast_fwd.fbx', 1, 19, 30, 1], fly: ['fly.fbx', 1, 79, 15, 1],
+  sit: ['sitting_idle.fbx', 0, 800, 10, 1], air: ['jump_standing_apex_all.fbx', 2, 2, 30, 0],
+  land: ['jump_standing_land_settle_all.fbx', 1, 30, 30, 0], talk: ['talk.fbx', 1, 500, 15, 1],
+  turn: ['turn_left.fbx', 1, 33, 30, 1],
+  raiseHand: ['emote_raisehand01_all.fbx', 1, 120, 15, 0], clap: ['emote_clap01_all.fbx', 1, 160, 15, 0],
+  nod: ['emote_agree_headnod.fbx', 1, 55, 15, 0], shake: ['emote_disagree_annoyedheadshake.fbx', 1, 72, 15, 0],
+  point: ['emote_point01_all.fbx', 1, 134, 15, 0],
+  sitClap: ['sitting_emote_clap_all.fbx', 0, 99, 15, 0], sitRaiseHand: ['sitting_emote_raisehand_all.fbx', 0, 120, 15, 0],
+  sitNod: ['sitting_emote_agree_headnod.fbx', 1, 60, 15, 0], sitTalk: ['sitting_talk02.fbx', 1, 271, 15, 1],
+};
+const loader = new FBXLoader();
+function poseAt(g, mix, t) { mix.setTime(t); g.updateMatrixWorld(true); }
+function b64(arr) { const u = new Uint8Array(arr.buffer); let s = ''; for (let i = 0; i < u.length; i++) s += String.fromCharCode(u[i]); return btoa(s); }
+// the T-pose rest, from frame 0 of fly.fbx
+const ref = await loader.loadAsync(base + 'fly.fbx'); const refMix = new THREE.AnimationMixer(ref); refMix.clipAction(ref.animations[0]).play(); poseAt(ref, refMix, 0);
+const rest = {}; for (const n of Object.keys(MAP)) { const o = ref.getObjectByName(n); rest[n] = { w: o.getWorldQuaternion(new THREE.Quaternion()), pw: o.parent.getWorldQuaternion(new THREE.Quaternion()) }; }
+const hipsH = ref.getObjectByName('Hips').getWorldPosition(new THREE.Vector3()).y;
+const out = { _source: 'Overte (github.com/overte-org/overte) interface/resources/avatar/animations, Apache-2.0, Copyright High Fidelity, Vircadia, Overte e.V.', _hipsHeight: hipsH };
+for (let [name, [file, a, b, fps, loop]] of Object.entries(CLIPS)) {
+  let g; try { g = await loader.loadAsync(base + file); } catch (e) { out['_failed_' + name] = String(e); continue; }
+  const mix = new THREE.AnimationMixer(g); mix.clipAction(g.animations[0]).play();
+  // some files begin with extra T-pose frames before the motion: start at the first real frame, keep the length
+  const isTpose = (t) => { poseAt(g, mix, t); let worst = 0; for (const src of ['LeftArm', 'RightArm', 'Spine', 'LeftUpLeg']) { const o = g.getObjectByName(src); if (!o) continue; const q = o.quaternion.clone().premultiply(rest[src].pw).multiply(rest[src].w.clone().invert()); worst = Math.max(worst, 2 * Math.acos(Math.min(1, Math.abs(q.w)))); } return worst < 0.05; };
+  let skip = 0; while (skip < 60 && isTpose((a + skip) / 30)) skip++;
+  if (skip) { out['_trimmed_' + name] = skip; a += skip; b += skip; }
+  const n = Math.max(1, Math.round((b - a) / 30 * fps) + (loop ? 0 : 1));
+  const bones = {}; const prev = {}; const hips = new Float32Array(n * 3);
+  for (const k of Object.keys(MAP)) bones[MAP[k]] = new Int16Array(n * 4);
+  const q = new THREE.Quaternion();
+  for (let i = 0; i < n; i++) {
+    poseAt(g, mix, (a + i * 30 / fps) / 30);
+    for (const [src, dst] of Object.entries(MAP)) {
+      const o = g.getObjectByName(src); if (!o) continue;
+      q.copy(o.quaternion).premultiply(rest[src].pw).multiply(rest[src].w.clone().invert());
+      if (prev[dst] && prev[dst].dot(q) < 0) q.set(-q.x, -q.y, -q.z, -q.w);
+      prev[dst] = q.clone();
+      bones[dst].set([q.x, q.y, q.z, q.w].map(v => Math.round(v * 32767)), i * 4);
+    }
+    const p = g.getObjectByName('Hips').getWorldPosition(new THREE.Vector3()).divideScalar(hipsH);
+    hips.set([p.x, p.y, p.z], i * 3);
+  }
+  // loops play in place: remove any drift along the ground
+  if (loop && n > 1) { const dx = hips[(n - 1) * 3] - hips[0], dz = hips[(n - 1) * 3 + 2] - hips[2]; for (let i = 0; i < n; i++) { hips[i * 3] -= dx * i / (n - 1); hips[i * 3 + 2] -= dz * i / (n - 1); } }
+  let mx = 0, mz = 0; for (let i = 0; i < n; i++) { mx += hips[i * 3] / n; mz += hips[i * 3 + 2] / n; }
+  if (!name.startsWith('fly')) for (let i = 0; i < n; i++) { hips[i * 3] -= mx; hips[i * 3 + 2] -= mz; }
+  const hq = new Int16Array(n * 3); for (let i = 0; i < n * 3; i++) hq[i] = Math.round(hips[i] * 10000);
+  const enc = {}; for (const [k, v] of Object.entries(bones)) enc[k] = b64(v);
+  out[name] = { fps, n, loop: !!loop, hips: b64(hq), bones: enc };
+}
+window.RESULT = JSON.stringify(out);
+</script>

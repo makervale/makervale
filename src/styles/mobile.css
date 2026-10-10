@@ -1,0 +1,218 @@
+/* Phones and tablets. Loaded last, so these rules win over the desktop layout.
+   html.phone is set by features/phone-mode: a touch screen that is narrow, or short (a phone on its side). */
+
+/* ---------- touch controls: any touch screen ---------- */
+.stick,
+.climb {
+  display: none;
+}
+@media (pointer: coarse) {
+  .stick {
+    display: block;
+    position: absolute;
+    left: 14px;
+    bottom: calc(var(--bar-h) + 14px + env(safe-area-inset-bottom, 0px));
+    width: 116px;
+    height: 116px;
+    border-radius: 50%;
+    background: rgba(20, 22, 26, 0.35);
+    border: 2px solid rgba(255, 255, 255, 0.35);
+    z-index: 13;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .stick .knob {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 50px;
+    height: 50px;
+    margin: -25px 0 0 -25px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.55);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+    pointer-events: none;
+  }
+  .stick.held .knob {
+    background: rgba(255, 255, 255, 0.8);
+  }
+  .climb {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    position: absolute;
+    right: 14px;
+    bottom: calc(var(--bar-h) + 14px + env(safe-area-inset-bottom, 0px));
+    z-index: 13;
+  }
+  .climb[hidden] {
+    display: none;
+  }
+  .climb-btn {
+    width: 54px;
+    height: 54px;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.35);
+    background: rgba(20, 22, 26, 0.45);
+    color: var(--white);
+    font-size: 20px;
+    touch-action: none;
+  }
+  .climb-btn:active {
+    background: rgba(255, 255, 255, 0.35);
+  }
+
+  /* the chat moves right of the joystick; while typing it takes the whole width (nobody walks and types) */
+  .chat,
+  .stage:has(#build:not([hidden])) .chat {
+    left: 144px;
+    width: min(440px, calc(100% - 156px));
+  }
+  .chat.open,
+  .stage:has(#build:not([hidden])) .chat.open {
+    left: 12px;
+    width: min(520px, calc(100% - 24px));
+    z-index: 14;
+  }
+
+  /* a finger held still must not select text or pop up the browser's own menu */
+  body {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+  input,
+  textarea,
+  .chat.open .chat-log {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+
+  /* window headers big enough to grab with a finger */
+  .fhead {
+    height: 34px;
+    touch-action: none;
+  }
+  .fhead button {
+    min-width: 34px;
+    min-height: 30px;
+  }
+}
+
+/* ---------- phone layout ---------- */
+.phone {
+  /* two rows of buttons */
+  --bar-h: 70px;
+}
+.phone .sidebar {
+  display: none !important;
+}
+.phone .bottombar {
+  flex-wrap: wrap;
+  align-content: center;
+  gap: 5px;
+  padding: 0 6px;
+}
+.phone .bottombar > * {
+  flex: 1 1 calc(25% - 5px);
+  min-width: 0;
+}
+.phone .bottombar .tbtn,
+.phone .bottombar .gest > .tbtn {
+  width: 100%;
+  height: 27px;
+  justify-content: center;
+  gap: 4px;
+  padding: 0 4px;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.phone .bottombar .tbtn svg {
+  flex: none;
+  width: 14px;
+  height: 14px;
+}
+.phone .bottombar .stats {
+  display: none;
+}
+.phone .desktop-only {
+  opacity: 0.45;
+}
+.phone .floater {
+  max-width: calc(100% - 16px);
+}
+
+/* a phone on its side: one row fits, and height is what's scarce */
+@media (max-height: 500px) {
+  .phone {
+    --bar-h: 36px;
+  }
+  .phone .bottombar > * {
+    flex: 1 1 0;
+  }
+  .phone .floater {
+    max-height: calc(100% - var(--bar-h) - 16px);
+  }
+}
+
+/* the first card on a phone */
+.phone-notice {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.55);
+}
+.phone-card {
+  width: min(360px, calc(100vw - 32px));
+  box-sizing: border-box;
+  max-height: 100%;
+  overflow: auto;
+  padding: 18px 18px 16px;
+  background: var(--dkgray2);
+  border: 1px solid #000;
+  border-top: 3px solid var(--emph);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.7);
+  color: var(--ltgray);
+  font-size: 14px;
+  line-height: 1.45;
+}
+.phone-card h2 {
+  margin: 0 0 8px;
+  color: var(--white);
+  font-size: 17px;
+}
+.phone-card p {
+  margin: 0 0 8px;
+}
+.phone-can {
+  margin: 0 0 10px;
+  padding-left: 18px;
+}
+.phone-can li {
+  margin-bottom: 4px;
+}
+.phone-cant {
+  color: var(--white);
+}
+.phone-card .btn {
+  width: 100%;
+  height: 40px;
+  margin-top: 6px;
+  font-size: 14px;
+}
+
+/* menus and items for building and the camera window */
+.phone .desktop-only-menu,
+.phone .desktop-only-item {
+  display: none;
+}
+
+/* the top bar is narrow on a phone: the tagline goes, the "Experimental software" label stays */
+.phone .menubar .brand .tagline {
+  display: none;
+}
