@@ -30,11 +30,12 @@ describe("NAT test", () => {
 });
 
 describe("verdict", () => {
-  it("blocked without relays or WebRTC, limited behind strict routers, good otherwise", () => {
+  it("blocked without relays, limited without WebRTC, good otherwise (strict routers go through the relays)", () => {
     expect(verdictOf(0, true, "ok", false).verdict).toBe("blocked");
-    expect(verdictOf(3, false, "ok", false).verdict).toBe("blocked");
-    expect(verdictOf(3, true, "sym", false).verdict).toBe("limited");
-    expect(verdictOf(3, true, "blocked", false).verdict).toBe("limited");
+    expect(verdictOf(3, false, "ok", false).verdict).toBe("limited");
+    expect(verdictOf(3, true, "sym", false).verdict).toBe("good");
+    expect(verdictOf(3, true, "sym", false).summary).toContain("through the public relays");
+    expect(verdictOf(3, true, "blocked", false).verdict).toBe("good");
     expect(verdictOf(3, true, "sym", true).verdict).toBe("good");
     expect(verdictOf(3, true, "ok", false).verdict).toBe("good");
   });

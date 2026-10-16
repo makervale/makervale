@@ -18,7 +18,7 @@ function moved(ctx: Ctx, fx: Fx): void {
 }
 
 function scriptsChanged(ctx: Ctx, ids: string[]): void {
-  queueObjs(ctx, ids);
+  queueObjs(ctx, ids, true);
 }
 
 function forwardTouch(ctx: Ctx, id: string): void {

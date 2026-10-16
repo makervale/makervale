@@ -4,9 +4,9 @@
  * dropped, except the authority's script results on objects that already run that script.
  */
 import type { Obj, World } from "@/world/model";
-import { refreshListing } from "../advertising";
 import type { Ctx } from "../context";
 import { applyRemote, authorityId, inRoom, send } from "../context";
+import { recordRemote } from "../moderation";
 import { canBuild } from "../rules";
 import { asRecord, cleanList, cleanNum, sanitizeObj, sanitizeObjects, validId } from "../sanitize";
 import { settled } from "./settled";
@@ -18,21 +18,27 @@ const MAX_SCRIPT_EDITS = 500;
 
 interface Outbox {
   dirty: Set<string>;
+  /** of those, the ones only scripts changed */
+  scripted: Set<string>;
   timer: ReturnType<typeof setTimeout> | null;
 }
 const outboxes = new WeakMap<Ctx, Outbox>();
 
 function outboxOf(ctx: Ctx): Outbox {
   let box = outboxes.get(ctx);
-  if (!box) outboxes.set(ctx, (box = { dirty: new Set(), timer: null }));
+  if (!box) outboxes.set(ctx, (box = { dirty: new Set(), scripted: new Set(), timer: null }));
   return box;
 }
 
 /** send these objects (or their deletion) to the room soon */
-export function queueObjs(ctx: Ctx, ids: Iterable<string>): void {
+export function queueObjs(ctx: Ctx, ids: Iterable<string>, byScript = false): void {
   if (!inRoom(ctx) || !ctx.net.synced) return;
   const box = outboxOf(ctx);
-  for (const id of ids) box.dirty.add(id);
+  for (const id of ids) {
+    if (byScript && !box.dirty.has(id)) box.scripted.add(id);
+    else if (!byScript) box.scripted.delete(id);
+    box.dirty.add(id);
+  }
   if (!box.timer) box.timer = setTimeout(() => flushObjs(ctx), FLUSH_MS);
 }
 
@@ -42,14 +48,26 @@ export function dropQueuedObjs(ctx: Ctx): void {
   if (box.timer) clearTimeout(box.timer);
   box.timer = null;
   box.dirty.clear();
+  box.scripted.clear();
 }
 
 function flushObjs(ctx: Ctx): void {
   const box = outboxOf(ctx);
   const ids = [...box.dirty];
+  const scripted = new Set(box.scripted);
   box.timer = null;
   box.dirty.clear();
+  box.scripted.clear();
   if (!inRoom(ctx)) return;
+  sendObjs(
+    ctx,
+    ids.filter((id) => !scripted.has(id)),
+    false,
+  );
+  sendObjs(ctx, [...scripted], true);
+}
+
+function sendObjs(ctx: Ctx, ids: string[], byScript: boolean): void {
   const store = ctx.deps.store;
   const set: Obj[] = [];
   const del: string[] = [];
@@ -59,16 +77,19 @@ function flushObjs(ctx: Ctx): void {
     else del.push(id);
   }
   const order = store.world.objects.map((o) => o.id);
-  if (set.length || del.length) send(ctx, "objs", { set, del, order, ver: ctx.net.ver });
-  refreshListing(ctx);
+  const msg = { set, del, order, ver: ctx.net.ver, ...(byScript ? { s: 1 } : {}) };
+  if (set.length || del.length) send(ctx, "objs", msg);
 }
 
 /** the scene changed here (a user action, undo, redo): count it and send it, unless it came from the room */
 export function onLocalEdit(ctx: Ctx, ids: string[] | undefined): void {
   if (ctx.applyingRemote || !inRoom(ctx) || !ids) return;
-  if (ctx.net.synced) {
-    ctx.net.ver++;
-    ctx.net.fresh = false;
+  const n = ctx.net;
+  if (n.synced) {
+    n.ver++;
+    n.fresh = false;
+    // nobody else here to receive it: until someone does (or the relays do), this change is ours alone
+    if (![...n.peers.values()].some((p) => p.synced)) n.pending = true;
   }
   queueObjs(ctx, ids);
 }
@@ -111,6 +132,7 @@ export function onObjs(ctx: Ctx, raw: unknown, from: string): void {
   const del = cleanList(d.del, MAX_EDITS).filter((id): id is string => validId(id) && !!store.byId(id));
   const set = sanitizeObjects(d.set, MAX_EDITS);
   const touched = [...del, ...set.map((o) => o.id)];
+  if (d.s !== 1) recordRemote(ctx, from, set, del);
   const change = () => {
     upsert(store.world, set, del);
     reorder(store.world, d.order);

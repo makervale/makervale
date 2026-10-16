@@ -3,7 +3,7 @@ import { toast } from "@/ui/toast";
 import type { MpWindow } from "./state";
 
 function saveRelay(win: MpWindow): void {
-  const { ice } = win.deps;
+  const ice = win.deps.session;
   const value = (id: string) => win.body.querySelector<HTMLInputElement>(id)!.value.trim();
   const urls = value("#mp-turn-urls");
   const custom = urls
@@ -16,22 +16,22 @@ function saveRelay(win: MpWindow): void {
   ice.setTurnPrefs({ ...ice.turnPrefs(), custom });
   // the last test was made with the old relay
   win.state.report = null;
-  toast(custom ? "Relay saved. Test your connection to check it." : "Your own relay removed");
+  toast(custom ? "Saved. Test your connection to check it." : "Your own TURN server removed");
   win.render();
 }
 
 function clearRelay(win: MpWindow): void {
-  const { ice } = win.deps;
+  const ice = win.deps.session;
   ice.setTurnPrefs({ ...ice.turnPrefs(), custom: null });
   win.state.report = null;
-  toast("Your own relay removed");
+  toast("Your own TURN server removed");
   win.render();
 }
 
 export function runCheck(win: MpWindow): void {
   win.state.checking = true;
   win.render();
-  const progress = win.deps.check.checkConnectivity((report) => {
+  const progress = win.deps.session.checkConnection((report) => {
     win.state.report = report;
     win.render();
   });

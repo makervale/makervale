@@ -12,8 +12,10 @@ import type { ActionName, HelloMsg, Messages } from "./messages";
 import type { AvatarSnapshot, PeerBodies } from "./peers";
 import type { PhysicsBridge } from "./physics-bridge";
 import type { ScriptBridge } from "./scripts-bridge";
+import { visitKey } from "./nostr";
+import { proveMe } from "./person";
 import type { ChatLine, NetState } from "./state";
-import { MAX_CHAT_LINES } from "./state";
+import { MAX_CHAT_LINES, kindOf } from "./state";
 import type { Transport } from "./transport";
 
 export interface SessionDeps {
@@ -26,7 +28,7 @@ export interface SessionDeps {
   physics: PhysicsBridge;
   selfName: () => string;
   selfLook: () => Look;
-  /** where the room owner key is kept (localStorage in the browser) */
+  /** where room owner keys are kept (localStorage in the browser) */
   keyStore: KeyStore;
 }
 
@@ -38,7 +40,7 @@ export interface Ctx {
   link: Transport | null;
   /** true while net itself changes the scene; see applyRemote */
   applyingRemote: boolean;
-  /** set by session.ts: rules.ts must leave when the host removes us, but rooms.ts (which leaves) imports rules.ts */
+  /** set by session.ts: rules.ts must leave when the owner removes us, but rooms.ts (which leaves) imports it */
   leave: () => Promise<void>;
 }
 
@@ -65,9 +67,13 @@ export function send<N extends ActionName>(ctx: Ctx, name: N, data: Messages[N],
 
 export function helloMsg(ctx: Ctx): HelloMsg {
   const n = ctx.net;
-  const me = { name: ctx.deps.selfName(), look: ctx.deps.selfLook() };
-  const room = { synced: n.synced, room: n.name, pub: n.isPublic, adv: n.advertiser, ver: n.ver, fresh: n.fresh };
-  return { ...me, ...room, rules: n.rules };
+  const me = {
+    name: ctx.deps.selfName(),
+    look: ctx.deps.selfLook(),
+    vk: visitKey,
+    ...proveMe(n.id, n.selfId, visitKey),
+  };
+  return { ...me, synced: n.synced, room: n.name, ver: n.ver, fresh: n.fresh, rules: n.rules };
 }
 
 /** tell everyone (or one newcomer) who we are and what we know about the room */
@@ -75,7 +81,17 @@ export function sendHello(ctx: Ctx, target?: string): void {
   send(ctx, "hello", helloMsg(ctx), target);
 }
 
-export const authorityId = (ctx: Ctx): string => pickAuthority(ctx.net.selfId, ctx.net.synced, ctx.net.peers.values());
+/** a public room runs on its owner's computer, and only while the owner is in it; "" then means nobody */
+function publicAuthority(n: NetState): string {
+  const host = n.rules?.host ?? "";
+  if (host === n.selfId) return n.synced ? host : "";
+  return n.peers.get(host)?.synced ? host : "";
+}
+
+export const authorityId = (ctx: Ctx): string =>
+  kindOf(ctx.net) === "public"
+    ? publicAuthority(ctx.net)
+    : pickAuthority(ctx.net.selfId, ctx.net.synced, ctx.net.peers.values());
 
 /** should scripts run here? always outside rooms; in a room only on the authority, once it has the scene */
 export const amAuthority = (ctx: Ctx): boolean =>

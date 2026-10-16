@@ -1,4 +1,4 @@
-/** The bottom of the window: your own TURN relay, the connection test and its report, and the version. */
+/** Settings: the connection test and its report, your own TURN server (advanced), consent, the version. */
 import { esc } from "@/ui/dom";
 import { checkMark } from "./format";
 import type { Check, Report, TurnPrefs } from "./port";
@@ -22,14 +22,13 @@ function relayFields(prefs: TurnPrefs): string {
 export function relayHTML(prefs: TurnPrefs): string {
   const on = !!prefs.custom;
   const remove = on ? `<button class="btn small" id="mp-turn-clear">Remove</button>` : "";
-  return `<details class="mp-relay"${on ? " open" : ""}><summary>Relay server (TURN)${on ? " · on" : ""}</summary>
+  return `<details class="mp-fold"${on ? " open" : ""}><summary>Advanced: your own TURN server${on ? " · on" : ""}</summary>
     <div class="rl-body">
-      <p class="note">When two routers can't connect directly (strict NAT on both sides), traffic has to go through
-        a relay. One working relay on either side is enough. Free ones: an ExpressTURN account (expressturn.com,
-        1000 GB a month) or Metered's Open Relay (metered.ca). Sign up, copy the address, username and password
-        here, save, then test your connection. The relay then sees your room traffic (see Help › Privacy).</p>
+      <p class="note">Not needed: when two routers can't connect directly, rooms go through the public relays on
+        their own. A TURN server of your own makes those connections smoother. Free ones need an account, for
+        example ExpressTURN (expressturn.com). The server then sees your room traffic (see Help › Privacy).</p>
       ${relayFields(prefs)}
-      <div class="rl-actions">${remove}<button class="btn small primary" id="mp-turn-save">Save relay</button></div>
+      <div class="rl-actions">${remove}<button class="btn small primary" id="mp-turn-save">Save</button></div>
       <p class="note">Kept only in this browser, and used for the next room you open or join.</p>
     </div></details>`;
 }
@@ -64,5 +63,5 @@ export function connectionHTML(prefs: TurnPrefs, state: MpState): string {
   const label = state.checking ? "Testing…" : "Test my connection";
   const button = `<button class="btn small" id="mp-check" ${state.checking ? "disabled" : ""}>${label}</button>`;
   const row = `<div class="mp-row">${button}<span class="note">Will rooms work from here?</span></div>`;
-  return relayHTML(prefs) + row + (state.report ? reportHTML(state.report) : "") + WITHDRAW;
+  return row + (state.report ? reportHTML(state.report) : "") + relayHTML(prefs) + WITHDRAW;
 }

@@ -1,8 +1,8 @@
 /**
- * How browsers reach each other. Direct connections first (STUN tells each side its public address). When a strict
- * router makes a direct connection impossible, traffic can go through a TURN relay. No free public relay could be
- * confirmed to work, so none is built in: you can add your own (for example a free ExpressTURN account) in the
- * Multiplayer window. Only one side of a connection needs a working relay.
+ * How browsers reach each other directly: STUN tells each side its public address. When strict routers make a
+ * direct connection impossible, the room's relay channel carries the traffic instead (channel/), with no setup.
+ * A TURN server of your own (Settings › Advanced in the Multiplayer window) is optional: it carries such connections
+ * smoother than the relays. No free TURN server works without an account, so none is built in.
  */
 import type { BaseRoomConfig } from "trystero/nostr";
 import { queryParam } from "./query";

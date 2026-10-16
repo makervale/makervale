@@ -1,30 +1,55 @@
-/** Draw the window for where you are: the lobby outside rooms, the room's people and controls inside one. */
-import { connectionHTML } from "./relay-view";
-import { lobbyHTML } from "./lobby-view";
+/** Draw the window: the consent screen until you agree, then the tabs and the page of the one that is open. */
+import { galleryHTML } from "./gallery-view";
 import { goOnlineHTML } from "./privacy-view";
-import { renderMine, renderRooms, renderStatus, startBrowsing, stopBrowsing } from "./lists";
+import { publicHTML } from "./public-view";
 import { roomHTML } from "./room-view";
+import { roomsHTML } from "./rooms-view";
+import { settingsHTML } from "./settings-view";
 import type { MpWindow } from "./state";
+import { tabsHTML } from "./tabs-view";
 import { updateBadge } from "./view";
+import { renderViewBar } from "./viewbar";
+
+function pageHTML(win: MpWindow): string {
+  const { session, identity } = win.deps;
+  const s = win.state;
+  switch (s.tab) {
+    case "public":
+      return publicHTML(s.publicRooms, session.relayStatus());
+    case "gallery":
+      return galleryHTML(s, session.canPublish());
+    case "settings":
+      return settingsHTML(identity, session.turnPrefs(), s);
+    default:
+      return session.inRoom()
+        ? roomHTML(identity.name, identity.look.shirt, session)
+        : roomsHTML(identity, s.mine, s.invite);
+  }
+}
+
+/** an open field keeps what was typed (and the focus) while the rest of the page redraws */
+function keepTyping(body: HTMLElement, draw: () => void): void {
+  const fields = [...body.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>("input.tf, textarea.tf")];
+  const values = new Map(fields.map((f) => [f.id, f.value]));
+  const focused = document.activeElement?.id ?? "";
+  draw();
+  for (const [id, value] of values) {
+    const f = body.querySelector<HTMLInputElement>("#" + id);
+    if (f && id) f.value = value;
+  }
+  if (focused) body.querySelector<HTMLElement>("#" + focused)?.focus();
+}
 
 export function renderWindow(win: MpWindow): void {
-  const { session, identity, ice } = win.deps;
-  const inRoom = session.inRoom();
-  updateBadge(inRoom ? session.net.peers.size + 1 : null);
-  const connection = connectionHTML(ice.turnPrefs(), win.state);
-  if (inRoom) {
-    stopBrowsing(win);
-    win.body.innerHTML = roomHTML(identity, session, connection);
-    return;
-  }
-  if (!win.deps.lobby.networkAllowed()) {
+  const { session, identity } = win.deps;
+  updateBadge(session.inRoom() ? session.net.peers.size + 1 : null);
+  renderViewBar(win);
+  if (!session.networkAllowed()) {
     // the privacy note comes first: until it is accepted the page contacts nobody
     win.body.innerHTML = goOnlineHTML(identity);
     return;
   }
-  win.body.innerHTML = lobbyHTML(identity, connection);
-  renderRooms(win);
-  renderMine(win);
-  renderStatus(win);
-  startBrowsing(win);
+  keepTyping(win.body, () => {
+    win.body.innerHTML = tabsHTML(win.state.tab, session.inRoom()) + `<div class="mp-page">${pageHTML(win)}</div>`;
+  });
 }

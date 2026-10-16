@@ -5,13 +5,13 @@ import { bytesToHex, hexToBytes } from "@noble/hashes/utils.js";
 import type { Rules, UnsignedRules } from "./model";
 
 // bumping this invalidates every signature made before it
-const PAYLOAD_TAG = "sandbox-rules-v1";
+const PAYLOAD_TAG = "makervale-rules-v2";
 
 export const HEX_KEY = /^[0-9a-f]{64}$/;
 export const HEX_SIG = /^[0-9a-f]{128}$/;
 
 function digest(r: UnsignedRules): Uint8Array {
-  const fields = [PAYLOAD_TAG, r.room, r.owner, r.host, r.build, r.banned, r.ver];
+  const fields = [PAYLOAD_TAG, r.room, r.owner, r.host, r.kind, r.build, r.allow, r.deny, r.banned, r.keep, r.ver];
   return sha256(new TextEncoder().encode(JSON.stringify(fields)));
 }
 
