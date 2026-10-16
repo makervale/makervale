@@ -1,69 +1,74 @@
-/** The window inside a room: its name and code, host controls, and who is here. */
+/**
+ * The window inside a room, top to bottom in the order people need it: what room this is and what's happening,
+ * how to bring others, what you may do, the owner's settings, who is here, and the way out.
+ */
 import { esc } from "@/ui/dom";
-import type { PeerState } from "@/net/state";
-import { identityRow } from "./lobby-view";
-import type { Me, RoomSession } from "./port";
+import { displayCode } from "@/net";
+import { people } from "./format";
+import { ownerHTML, rulesSentence } from "./owner-view";
+import { peopleHTML } from "./people-view";
+import type { Session } from "./port";
 
-const hostTag = (id: string, hostId: string) => (id && id === hostId ? ` <em class="host-tag">host</em>` : "");
+const note = (bold: string, text = "") =>
+  `<div class="mp-status"><b>${bold}</b>${text ? `<span class="note">${text}</span>` : ""}</div>`;
 
-const person = (color: string, name: string, extra = "") =>
-  `<li><span class="dot" style="background:${color}"></span><span class="pn">${name}</span>${extra}</li>`;
-
-function kickButton(p: PeerState): string {
-  const who = esc(p.name || "this person");
-  return `<button class="btn small kick" data-kick="${esc(p.id)}" data-name="${who}"
-    title="Remove from the room">Remove</button>`;
-}
-
-function peopleList(me: Me, session: RoomSession): string {
-  const hostId = session.hostId();
-  const amHost = session.amHost();
-  const self = person(me.look.shirt, `${esc(me.name)} <i>(you)</i>${hostTag(session.net.selfId, hostId)}`);
-  const others = [...session.net.peers.values()].map((p) => {
-    const name = esc(p.name || "Connecting…") + (p.synced ? "" : " <i>(joining)</i>") + hostTag(p.id, hostId);
-    return person(p.color, name, amHost ? kickButton(p) : "");
-  });
-  return self + others.join("");
-}
-
-function hostBox(session: RoomSession): string {
-  if (session.amHost()) {
-    const rules = session.net.rules;
-    const everyone = !rules || rules.build === "all" ? "checked" : "";
-    return `<div class="mp-host"><b>You are the host</b>
-      <label class="check"><input type="checkbox" id="mp-build-all" ${everyone}>Everyone can build</label>
-      <span class="note">Unchecked: only you can change the scene; others can still walk, chat and use scripted
-        things.</span></div>`;
-  }
-  if (!session.canIBuild()) {
-    return `<div class="mp-host locked"><b>Only the host can build here.</b>
-      <span class="note">You can walk around, chat and use scripted things.</span></div>`;
-  }
-  return "";
-}
-
-function roomHead(session: RoomSession): string {
+function waiting(session: Session): string {
   const net = session.net;
-  // a room can only be listed once we have its scene to offer
-  const listed = net.isPublic ? "checked" : "";
-  const listBox = net.synced
-    ? `<label class="check"><input type="checkbox" id="mp-list" ${listed}>Listed publicly</label>`
-    : "";
-  const status = net.synced ? "" : "getting the scene…";
-  return `<div class="mp-head"><b>${esc(net.name)}</b><span class="note">${status}</span></div>
-    <div class="mp-row">
-      <span class="lbl">Code</span><code class="mp-code">${esc(net.id)}</code>
-      <button class="btn small" id="mp-copy">Copy</button><button class="btn small" id="mp-leave">Leave</button>
-    </div>
-    ${listBox}`;
+  if (net.peers.size) return note("Getting the scene…");
+  if (net.rules?.kind === "public" || net.kind === "public")
+    return note("Waiting for the owner…", "A public room opens only while its owner is in it.");
+  if (net.vault.state === "loading") return note("Looking for the room…");
+  return note(
+    "Nobody is in this room right now",
+    "It isn't kept online, so it opens as soon as someone who has it comes in. You can wait here or leave.",
+  );
 }
 
-export function roomHTML(me: Me, session: RoomSession, connection: string): string {
-  return `${identityRow(me)}
-    ${roomHead(session)}
-    ${hostBox(session)}
-    <h4>Here now <span>${session.net.peers.size + 1}</span></h4>
-    <ul class="mp-people">${peopleList(me, session)}</ul>
-    <p class="note">Chat at the bottom left of the view (Enter).</p>
-    ${connection}`;
+/** one sentence on what is going on, when there is something to know */
+function statusHTML(session: Session): string {
+  const net = session.net;
+  if (!net.synced) return waiting(session);
+  if (net.peers.size) return "";
+  if (session.amOwner()) {
+    return net.rules?.kind === "public"
+      ? note("Your room is on the Public list", "Anyone can come in while you're here. They'll see your IP address.")
+      : note("You're the only one here", "Copy the link below and send it to the people you want in.");
+  }
+  return note(
+    "You're keeping this room open",
+    "Nobody else is here, so the room runs on your computer. Whoever comes in with the link connects to you.",
+  );
+}
+
+function shareHTML(session: Session): string {
+  if (session.net.rules?.kind === "public" && !session.amOwner()) return "";
+  return `<div class="mp-share"><button class="btn primary" id="mp-copy-link">Copy invite link</button>
+    <span class="note">or the code <code class="mp-code" id="mp-copy-code" title="Click to copy">${esc(displayCode(session.net.id))}</code></span></div>`;
+}
+
+function meHTML(session: Session): string {
+  if (session.amOwner() || !session.net.synced) return "";
+  if (session.canIBuild()) return `<p class="mp-me-line">You can build here.</p>`;
+  const wait = session.canAskAgainIn();
+  const ask =
+    session.ownerId() && session.net.peers.has(session.ownerId())
+      ? `<button class="btn small" id="mp-ask" ${wait ? "disabled" : ""}>${wait ? "Asked" : "Ask to build"}</button>`
+      : "";
+  return `<div class="mp-row mp-me-line"><span>You're watching: walk, chat and play.</span>${ask}</div>`;
+}
+
+export function roomHTML(name: string, shirt: string, session: Session): string {
+  const net = session.net;
+  const kind = net.rules?.kind ?? net.kind;
+  const count = net.synced ? people(net.peers.size + 1) : "";
+  return `<div class="mp-head"><b>${esc(net.name)}</b><span class="mp-pill">${kind === "public" ? "Public" : "Private"}</span>
+      <span class="note">${count}</span></div>
+    ${statusHTML(session)}
+    ${shareHTML(session)}
+    ${session.amOwner() ? "" : `<p class="note">${rulesSentence(session)}</p>`}
+    ${meHTML(session)}
+    ${ownerHTML(session)}
+    <h4>People here</h4>${peopleHTML(name, shirt, session)}
+    <div class="mp-actions mp-end"><button class="btn" id="mp-copy-room" title="A private room of your own from this scene">Make a copy</button>
+      <button class="btn" id="mp-leave">Leave</button></div>`;
 }

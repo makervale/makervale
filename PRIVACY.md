@@ -1,6 +1,6 @@
 # Privacy and terms
 
-Version 2026-10-10.8. The same text is shown in the app before first use and under Help › Privacy.
+Version 2026-10-16.1. The same text is shown in the app before first use and under Help › Privacy.
 
 ## 1. What Makervale is, and who it is for
 
@@ -16,19 +16,22 @@ Makervale sets **no cookies** and does no tracking, profiling or advertising. To
 - your name, avatar and look, and avatar files you loaded or downloaded;
 - settings and interface state, such as sound, window and panel layout, tools you pinned or used, and notices already shown;
 - that you accepted these terms, and which version;
-- for multiplayer: your own relay settings if you add any, and for rooms you opened, the private key that proves you are their owner.
+- for multiplayer: that you agreed to go online (until you withdraw it), your own TURN server settings if you add any, and the private keys that identify you in rooms and prove you own your rooms and published worlds.
 
-None of it is sent to the author or used for anything but the feature it belongs to, and the app reads no other data from your device than files you choose to open. Everything is needed for the app to do what you ask, so there is no consent banner. Your consent to go online is not stored. Being a prototype, the app may lose or damage what it stores: export scenes you care about (File › Export).
+None of it is sent to the author or used for anything but the feature it belongs to, and the app reads no other data from your device than files you choose to open. Everything is needed for the app to do what you ask, so there is no consent banner. Your consent to go online is kept as described in section 3. Being a prototype, the app may lose or damage what it stores: export scenes you care about (File › Export).
 
 **Deleting it.** The app has no button for this on purpose: a bug could leave something behind, so the only reliable way is your browser's own **clear site data** (in most browsers: the icon to the left of the address, then site settings or "clear cookies and site data"; or the browser's privacy settings). Note that on sites that host many games or apps, this may also clear other games' saves served from the same place. A private or incognito window keeps nothing once it is closed.
 
 ## 3. Multiplayer: how it works and what it reveals
 
-Multiplayer is **peer-to-peer**: your browser connects directly to the browsers of the other people in a room (WebRTC), with the help of third-party servers that the author does not run. Nothing is contacted until you open Multiplayer and agree to go online. That consent lasts for your visit (it is never stored), and **Withdraw consent** in the Multiplayer window takes it back at any time: you leave the room and go offline at once. Once you are online:
+Multiplayer is **peer-to-peer**: your browser connects directly to the browsers of the other people in a room (WebRTC), with the help of third-party servers that the author does not run. Nothing is contacted until you open Multiplayer and agree to go online. Your agreement is remembered in this browser, so on later visits the app goes online as soon as it starts, until you withdraw it; when this note changes, you are asked again. **Withdraw consent** (Multiplayer › Settings) takes it back at any time: you leave the room, go offline at once, and the app forgets your agreement. Once you are online:
 
-- **Everyone in your room** receives your IP address, your name, your avatar (including any .vrm file you load), where your avatar is and what it does, your gestures, your chat messages and the scene you share. They receive it on their own computers, where they can keep it, copy it or show it to others. Everyone who was in a room keeps a copy of its scene.
-- **Public Nostr relays** (open servers run by strangers, chosen from a list in the app) carry the room listings and the handshake that introduces browsers to each other. They see your IP address, the room's name and code, the number of people and objects in it, and the handshake messages.
-- **STUN servers** run by Google and Cloudflare are asked what your public address is; they see your IP address. A **TURN relay**, if you add one yourself, carries your room traffic.
+- **Everyone in your room** receives your IP address, your name, your avatar (including any .vrm file you load), where your avatar is and what it does, your gestures, your chat messages, the scene you share and a random identifier (different in every room). They receive it on their own computers, where they can keep it, copy it or show it to others. Everyone who was in a private room keeps a copy of its scene, and anyone who has a private room's link or code can open it.
+- **A public room** can be joined by anyone. If you open one, strangers get your IP address and everything above, and the room's name, its code, your name and the number of people in it are listed on the public relays while you are in it.
+- **Public Nostr relays** (open servers run by strangers, chosen from a list in the app) carry the handshake that introduces browsers to each other (encrypted with a key that only the room's code gives) and the list of public rooms. When a direct connection can't be made (strict routers on both sides), your room traffic goes through them too, encrypted with the room's key. They always see your IP address, and when and how much passes.
+- **Keep online.** For a private room whose owner turned this on, the relays also store an **encrypted copy of the scene**, readable only with the room's link or code. It expires after about six months unless someone opens the room. Turning it off, or deleting the room, asks the relays to remove it, but they may ignore that.
+- **The Gallery.** Publishing a world puts its scene, title, description and your name on the relays **in the clear, for anyone to see and copy**, with no expiry. Unpublishing asks the relays to delete it, but they may keep it, and copies other people made stay theirs.
+- **STUN servers** run by Google and Cloudflare are asked what your public address is; they see your IP address. A **TURN server**, if you add one yourself, carries your room traffic.
 - Traffic between browsers is encrypted on the way; the people in the room are the other end of it.
 
 An IP address can reveal your approximate location and your internet provider, and someone who has it can try to flood your connection. **Only join rooms of people you trust**, and only let people you trust into yours: the moment you share a room with a stranger, that stranger has your IP address and everything listed above, and could harass you, show you offensive content, or build and say things you don't want to see. The app never proposes or joins a room on its own; every room is your choice. If you do join a public room, use a nickname, share nothing personal, and leave the moment it feels wrong.
@@ -41,11 +44,13 @@ Makervale is a prototype and certainly has bugs; so do browsers. Going online me
 
 Because there is no server, the author **cannot** see which rooms exist or who is in them, cannot read or delete anything said or built, cannot ban or report anyone, cannot verify anyone's identity or age, and cannot recover anything you shared. Rooms are **unmoderated**. What other people say, build, wear, script or send is their doing alone.
 
-What you can do: the **host** of a room can remove people; anyone can **leave** at any time, which ends all sharing at once; a room you don't want to keep can be deleted under My rooms; you can play alone, offline, with everything else the app offers.
+What you can do: **leave** a room at any time, which ends all sharing at once; room owners can remove people; you can delete your rooms and unpublish your worlds; you can play alone, offline.
+
+**Why a room can't be fully deleted.** No server holds "the" room: every browser that was in a private room keeps its own copy, and the room's link is its only key. Deleting a room removes your copy and asks the relays to drop the copy kept online (they may not); it cannot reach the copies on other people's computers, and they can still open the room with its link. The same holds for anything you shared or published: once it reached someone, it is theirs to keep.
 
 ## 6. Rules
 
-You must be 18 or older. Be decent to each other. Don't harass, threaten or deceive anyone, don't try to exploit flaws in the app or in other people's computers, don't share anything illegal, hateful or sexual, and don't share other people's personal data. Hosts, please remove those who do. The author cannot check anyone's age: by accepting these terms you confirm yours, and you are responsible for what you do in rooms.
+You must be 18 or older. Be decent to each other. Don't harass, threaten or deceive anyone, don't try to exploit flaws in the app or in other people's computers, don't share anything illegal, hateful or sexual, and don't share other people's personal data, in rooms or in the Gallery. Room owners, please remove those who do. The author cannot check anyone's age: by accepting these terms you confirm yours, and you are responsible for what you do in rooms.
 
 ## 7. No liability
 
@@ -53,7 +58,7 @@ Makervale is an experimental prototype, provided free of charge and as is, witho
 
 ## 8. Your rights, withdrawing consent, and contact
 
-The author holds no data about you, so there is nothing to access, correct or delete on the author's side; what the app stores is on your device, under your control. You can withdraw your consent at any time, as easily as you gave it: **Withdraw consent** in the Multiplayer window ends going online (you leave the room at once). To withdraw your acceptance of these terms, stop using the app and clear its data in your browser as described in section 2. What others in a room already received stays on their computers, out of the app's and the author's reach. The third parties named above are responsible for what they process (hosting: GitHub; relays: each relay's operator; STUN: Google and Cloudflare; avatar downloads: Arweave and the IPFS gateways). Questions about the app, and contact with the author: open an issue in its source repository, [https://github.com/makervale/makervale](https://github.com/makervale/makervale/issues).
+The author holds no data about you, so there is nothing to access, correct or delete on the author's side; what the app stores is on your device, under your control. You can withdraw your consent at any time, as easily as you gave it: **Withdraw consent** under Multiplayer › Settings ends going online (you leave the room at once). To withdraw your acceptance of these terms, stop using the app and clear its data in your browser as described in section 2. What others in a room already received stays on their computers, out of the app's and the author's reach. The third parties named above are responsible for what they process (hosting: GitHub; relays: each relay's operator; STUN: Google and Cloudflare; avatar downloads: Arweave and the IPFS gateways). Questions about the app, and contact with the author: open an issue in its source repository, [https://github.com/makervale/makervale](https://github.com/makervale/makervale/issues).
 
 ## 9. Avatars from the index
 

@@ -65,7 +65,11 @@ export function mountFeatures(core: Core, renderer: Renderer, bodies: Bodies, wh
   initWindows();
   initSpinners();
   // on top of everything, until accepted: the privacy note and terms (the phone notice waits underneath)
-  terms.mount(() => {});
+  terms.mount(() => {
+    // consent to go online, given on an earlier visit, only counts once the terms are accepted
+    bodies.session.restoreConsent();
+    core.bus.emit("terms:accepted");
+  });
   return mounted;
 }
 
@@ -102,7 +106,5 @@ function mountPeople(core: Core, bodies: Bodies, who: Identity): void {
   };
   avatarWindow.mount({ bus, identity: who, avatar: avatarPort, session });
   gestures.mount({ bus });
-  const check = { checkConnectivity: session.checkConnection };
-  const lobby = session;
-  multiplayer.mount({ bus, session, lobby, reachability: session, ice: session, check, identity: who });
+  multiplayer.mount({ bus, session, identity: who });
 }

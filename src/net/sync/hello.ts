@@ -4,13 +4,14 @@
  */
 import { cleanLook } from "@/avatar/look";
 import type { Look } from "@/avatar/look";
-import { takeOverAdvertising, refreshListing } from "../advertising";
 import type { Ctx } from "../context";
 import { authorityId, changed, sendHello, system } from "../context";
-import { acceptRules, banned, dropPeer } from "../rules";
+import { checkPerson } from "../person";
+import { acceptRules, amOwner, banned, dropPeer } from "../rules";
 import { asRecord, cleanNum, cleanText } from "../sanitize";
 import type { PeerState } from "../state";
-import { newPeer } from "../state";
+import { kindOf, newPeer } from "../state";
+import { keepMyVersion } from "../copies";
 import { sendAvatar } from "./avatars";
 import { MAX_COUNTER, sendSnapshot } from "./snapshot";
 
@@ -31,10 +32,18 @@ export function onPeerLeave(ctx: Ctx, pid: string): void {
   ctx.deps.peers.remove(pid);
   ctx.net.peers.delete(pid);
   system(ctx, p.name + " left");
-  if (pid === ctx.net.advertiser) takeOverAdvertising(ctx);
-  refreshListing(ctx);
+  if (ownerLeftPublicRoom(ctx, pid)) return;
   ctx.deps.scripts.resync();
   changed(ctx);
+}
+
+/** a public room lives only while its owner is in it: when they go, everyone goes */
+function ownerLeftPublicRoom(ctx: Ctx, pid: string): boolean {
+  const n = ctx.net;
+  if (kindOf(n) !== "public" || pid !== n.rules?.host || amOwner(ctx)) return false;
+  ctx.deps.commands.notice("The owner left, so their public room closed. Your own scene is back.");
+  void ctx.leave();
+  return true;
 }
 
 const sameLook = (a: Look, b: Look): boolean => JSON.stringify(a) === JSON.stringify(b);
@@ -46,13 +55,19 @@ function updateBody(ctx: Ctx, p: PeerState, wasName: string, look: Look): void {
   else if (wasName !== p.name) bodies.rename(p.id, p.name);
 }
 
-/** a newcomer learns the room's name and listing from anyone who has the scene */
+/** a newcomer learns the room's name from anyone who has the scene */
 function learnRoom(ctx: Ctx, d: Record<string, unknown>): void {
   const n = ctx.net;
   if (n.synced || !d.synced) return;
   if (typeof d.room === "string" && d.room) n.name = cleanText(d.room, 60);
-  n.isPublic = !!d.pub;
-  if (typeof d.adv === "string") n.advertiser = d.adv;
+}
+
+/** their key for this room, and the visit key only they may sign relay messages with */
+function learnKeys(ctx: Ctx, p: PeerState, d: Record<string, unknown>): void {
+  const person = checkPerson(ctx.net.id, p.id, d);
+  if (!person) return;
+  p.person = person;
+  if (ctx.link?.routeOf(p.id) === "direct") ctx.link.knowVisitKey(p.id, d.vk as string);
 }
 
 /**
@@ -66,6 +81,7 @@ function yieldToBetterCopy(ctx: Ctx, p: PeerState): void {
   const live = !p.fresh;
   const newer = p.ver > n.ver || (p.ver === n.ver && p.id < n.selfId);
   if (!live && !newer) return;
+  keepMyVersion(ctx);
   n.synced = false;
   ctx.deps.scripts.reset();
   sendHello(ctx);
@@ -86,6 +102,8 @@ export function onHello(ctx: Ctx, raw: unknown, pid: string): void {
   p.synced = !!d.synced;
   p.ver = cleanNum(d.ver, 0, MAX_COUNTER) || 0;
   p.fresh = d.fresh === true;
+  learnKeys(ctx, p, d);
+  if (banned(ctx, pid)) return dropPeer(ctx, pid);
   if (d.rules) void acceptRules(ctx, d.rules);
   if (!wasName) system(ctx, p.name + " is here");
   learnRoom(ctx, d);

@@ -23,6 +23,10 @@ export interface Events {
   "scripts:errors": undefined;
   "build:allowed": { allowed: boolean };
   "identity:changed": undefined;
+  /** someone in my room asks me (the owner) to let them build */
+  "room:ask": { id: string; name: string };
+  /** the start screen's terms were accepted (or had been): features may now act on the address bar, consent… */
+  "terms:accepted": undefined;
 
   /* requests between features (features never import each other) */
   /** run a tool by id: live tools start in the viewport, the rest run at once */

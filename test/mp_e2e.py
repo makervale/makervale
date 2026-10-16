@@ -40,9 +40,9 @@ with sync_playwright() as p:
     A.wait_for_timeout(1500)
     check("offline until agreed", not [l for l in la if l.startswith(("WS:", "REQ:"))], str(la[-3:]))
     A.click('[data-win="mp"]'); A.wait_for_timeout(400)
-    check("the privacy note comes first", A.locator("#mp-agree").count() == 1 and A.locator("#mp-host").count() == 0)
+    check("the privacy note comes first", A.locator("#mp-agree").count() == 1 and A.locator("#mp-start").count() == 0)
     A.check("#mp-adult"); A.click("#mp-agree"); A.wait_for_timeout(400)
-    A.fill("#mp-room", "Test plaza"); A.click("#mp-host")
+    A.fill("#mp-room-name", "Test plaza"); A.click("#mp-start")
     A.wait_for_timeout(800)
     code = A.evaluate(f"() => {P}.session.net.id")
     B.click('[data-win="mp"]'); B.wait_for_timeout(400); B.check("#mp-adult"); B.click("#mp-agree"); B.wait_for_timeout(400)
@@ -104,9 +104,9 @@ with sync_playwright() as p:
         gone = False
     check("B's delete reaches A", gone)
 
-    A.evaluate(f"() => {P}.session.setBuildRule(false)"); B.wait_for_timeout(1500)
-    check("B may not build after host disallows", not B.evaluate(f"() => {P}.session.canIBuild()"))
-    A.evaluate(f"() => {P}.session.setBuildRule(true)"); B.wait_for_timeout(1500)
+    A.evaluate(f"() => {P}.session.setEveryoneBuilds(false)"); B.wait_for_timeout(1500)
+    check("B may not build after the owner disallows", not B.evaluate(f"() => {P}.session.canIBuild()"))
+    A.evaluate(f"() => {P}.session.setEveryoneBuilds(true)"); B.wait_for_timeout(1500)
     check("B may build again", B.evaluate(f"() => {P}.session.canIBuild()"))
 
     bid = B.evaluate(f"() => {P}.session.net.selfId")

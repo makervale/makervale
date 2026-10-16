@@ -43,7 +43,7 @@ src/
     mesh/                 mesh data, topology, ops/, generators/, boolean, bevel, decimate, uv, io/
     script/               the scripting language: lexer, parser, interpreter, builtins, templates
     physics/              a ball's step: gravity, contacts, bounce, roll, people pushing it
-    rules/                signed room rules (host controls)
+    rules/                signed room rules: private or public, who builds, who was removed, keep online
     vec.ts, text.ts
   world/                  the scene as data
     model.ts              Obj, Material, World
@@ -61,10 +61,18 @@ src/
     peer-bodies.ts        other people's bodies (implements net's PeerBodies)
     animator.ts, clips.*, gestures.ts, figure/, vrm/, collision.ts, movement.ts
   net/                    everything that leaves the browser (nothing does until net/online.ts is switched on)
-    session.ts            createSession(): the one object the UI talks to
+    session.ts            createSession(): the one object the UI talks to (+ owner-api.ts, gallery-api.ts)
     sync/                 one file per message family: hello, snapshot, objects, drag, avatars, chat, scripts, files
-    rooms.ts, own-scene.ts, saved-rooms.ts   open / join / reopen / leave
-    transport.ts, relays.ts, discovery.ts, reachability.ts, ice.ts, check.ts
+    rooms.ts, room-actions.ts, own-scene.ts, saved-rooms.ts, copies.ts   open / join / reopen / leave / copy
+    rules.ts, owner-tools.ts, person.ts   what the signed rules mean, the owner's changes, who someone is
+    moderation/           the owner's edit log: undo one person's changes, rewind the room
+    public-rooms.ts, announcer.ts         the list of public rooms, while their owners are in them
+    room-code.ts, room-keys.ts, seal.ts   codes, keys derived from them, encryption
+    transport.ts, direct.ts, channel/     WebRTC, or the room's encrypted channel on the relays when that fails
+    pieces/               a scene as content-addressed pieces on the relays, for vault/ and gallery/
+    vault/                Keep online: a private room's encrypted copy on the relays
+    gallery/              published, versioned, signed worlds; viewing.ts shows one in place of your scene
+    relays.ts, relay-query.ts, nostr.ts, ice.ts, check.ts
     sanitize.ts           everything that arrives from a peer goes through here
   features/               user-facing slices; each exports mount(deps) from index.ts
     build-window/         Object / Material / Script / Scene tabs, status line, last-operation panel
@@ -130,6 +138,29 @@ lib, ui  → nothing of ours
 ESLint's import rules enforce the arrows; a feature importing from another feature is an error
 (it goes through the bus instead).
 
+## Rooms and the Gallery
+
+Three things, which never turn into one another:
+
+- **Private room**: a live meeting of people with its link. Everyone builds unless the owner says otherwise, and
+  it carries on when the owner leaves: every browser keeps a copy, and the copy of whoever is in it is the room.
+  With **Keep online** its encrypted copy also waits on the relays, so it opens when nobody is in it.
+- **Public room**: a live meeting anyone can join from the list, only while its owner is in it. It runs on the
+  owner's computer (the owner is the script authority), guests watch until the owner lets them build, and it
+  closes when the owner leaves. Its code was listed, so it never becomes private again; a copy can.
+- **Gallery**: worlds frozen into versions by their author and signed with the author key. Anyone can view one
+  (alone, offline) or copy it; nobody can join it.
+
+"Make a copy" (of a room, or of a world you view) is the one bridge: always a new private room of yours, with a
+new link. Nothing is published unless its owner does so explicitly.
+
+The owner's rules are signed; people are named in them by a key of their own per room (`net/person.ts`), so a
+rule about someone survives a reload. The owner's browser keeps a log of others' edits for half an hour
+(`net/moderation/`): "undo their changes" and "rewind" are ordinary, undoable edits of the owner's.
+
+No server holds a room: deleting one removes your copy and asks the relays to drop the online one; the copies of
+people who were in it stay theirs.
+
 ## Conventions
 
 - Files: `kebab-case.ts`. Types: `PascalCase`. Everything else: `camelCase`.
@@ -148,4 +179,5 @@ ESLint's import rules enforce the arrows; a feature importing from another featu
 - `npm run site`: the build plus PRIVACY.md (generated from `src/app/privacy.ts` by `npm run privacy`) and the
   licences, in `site/`: what `.github/workflows/pages.yml` publishes on GitHub Pages.
 - End to end: serve the project root (`python3 -m http.server 8766`), start the local Nostr relay
-  (`node test/relay.mjs 7777`), then `python3 test/solo_e2e.py`, `python3 test/mp_e2e.py` and `python3 test/phone_e2e.py`.
+  (`node test/relay.mjs 7777`), then `python3 test/solo_e2e.py`, `python3 test/mp_e2e.py`, `python3 test/rooms_e2e.py`
+  and `python3 test/phone_e2e.py`.

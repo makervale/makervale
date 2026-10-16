@@ -10,23 +10,33 @@ export interface HelloMsg {
   look: Look;
   synced: boolean;
   room: string;
-  pub: boolean;
-  /** the peer currently listing the room publicly */
-  adv: string;
   ver: number;
-  /** their copy was just reopened from disk and nobody has changed it since */
+  /** their copy was just reopened and nobody has changed it since */
   fresh: boolean;
   rules: Rules | null;
+  /** the visit key that signs my relay channel */
+  vk: string;
+  /** my key in this room and its proof (person.ts) */
+  pk: string;
+  ps: string;
 }
 
 /** the whole scene, for a newcomer */
 export interface SnapMsg {
   world: { seq: number; objects: Obj[] };
   room: string;
-  pub: boolean;
-  adv: string;
   ver: number;
   rules: Rules | null;
+}
+
+/** "the room's copy on the relays is current": for a newcomer whose snapshot would be too big for the relays */
+export interface VaultSnapMsg {
+  ver: number;
+}
+
+/** a guest asks the owner to let them build */
+export interface AskMsg {
+  at: number;
 }
 
 /** objects an action touched: replaced, deleted, and the resulting scene order */
@@ -35,6 +45,8 @@ export interface ObjsMsg {
   del: string[];
   order: string[];
   ver: number;
+  /** 1 when the authority's scripts made these changes, not a person */
+  s?: number;
 }
 
 export interface Transform {
@@ -125,6 +137,8 @@ export interface Messages {
   gest: GestureMsg;
   body: BodiesMsg;
   note: NoteMsg;
+  vsnap: VaultSnapMsg;
+  ask: AskMsg;
 }
 
 export type ActionName = keyof Messages;
@@ -142,4 +156,6 @@ export const ACTION_NAMES: ActionName[] = [
   "gest",
   "body",
   "note",
+  "vsnap",
+  "ask",
 ];

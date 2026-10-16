@@ -23,19 +23,22 @@ vi.mock("./transport", () => ({
       on: (name: string, f: (d: unknown, from: string) => void) =>
         wire.handlers.set(name, (d, from) => hooks.accept(from) && f(d, from)),
       requestFile: async () => null,
+      routeOf: () => "direct",
+      relaySlowdown: () => 0,
+      knowVisitKey: () => {},
       drop: (pid: string) => wire.dropped.push(pid),
       leave: async () => {},
     };
   },
 }));
-vi.mock("./relays", () => ({ relaysReady: async () => [], relayStatus: () => ({}), onRelayStatus: () => () => {} }));
-vi.mock("./discovery", () => ({ advertise: vi.fn(), refreshAd: vi.fn(), stopAdvertising: vi.fn(), browse: vi.fn() }));
-vi.mock("./reachability", () => ({
-  answerPings: vi.fn(),
-  stopAnswering: vi.fn(),
-  probe: vi.fn(),
-  probeResult: vi.fn(),
+vi.mock("./relays", () => ({
+  relaysReady: async () => [],
+  currentRelays: () => [],
+  relayStatus: () => ({}),
+  onRelayStatus: () => () => {},
 }));
+const listing = vi.hoisted(() => ({ announce: vi.fn(), refreshAnnouncement: vi.fn(), withdraw: vi.fn() }));
+vi.mock("./public-rooms", () => ({ ...listing, browsePublicRooms: vi.fn() }));
 
 const { createSession } = await import("./session");
 
@@ -50,7 +53,6 @@ const tri = () => ({
 });
 const deliver = (name: string, data: unknown, from: string) => wire.handlers.get(name)!(data, from);
 const sentNames = () => wire.sent.map((m) => m.name);
-const flush = () => new Promise((r) => setTimeout(r, 0));
 
 function setup() {
   const store = new Store();
@@ -117,15 +119,14 @@ describe("session", () => {
   it("hosts a room with the current scene and gives it back on leaving", async () => {
     const { store, session, events } = setup();
     store.world.objects.push(newObj(store.world, tri(), [0, 0, 0], [1, 1, 1]));
-    const id = session.host("Test", false);
-    expect(id).toMatch(/^[a-z2-9]{9}$/);
+    const id = await session.host("Test", "private");
+    expect(id).toMatch(/^[a-z2-9]{12}$/);
     expect(session.inRoom()).toBe(true);
     expect(session.net.synced).toBe(true);
-    expect(session.net.chat[0].text).toContain(id);
+    expect(session.net.chat[0].text).toContain("Test");
     expect(events).toContain("room:joined");
-    await flush();
     expect(session.net.rules?.host).toBe("me");
-    expect(session.amHost()).toBe(true);
+    expect(session.amOwner()).toBe(true);
     store.world.objects = [];
     await session.leave();
     expect(store.world.objects.length).toBe(1);
@@ -134,9 +135,9 @@ describe("session", () => {
   });
 
   it("sends local edits, applies peers' edits without echoing them", async () => {
-    vi.useFakeTimers();
     const { store, commands, session } = setup();
-    session.host("Test", false);
+    await session.host("Test", "private");
+    vi.useFakeTimers();
     let id = "";
     commands.act("add", [], () => {
       const o = newObj(store.world, tri(), [0, 0, 0], [1, 1, 1]);
@@ -159,9 +160,9 @@ describe("session", () => {
     expect(session.net.ver).toBe(ver + 1);
   });
 
-  it("greets newcomers and sends them the scene", () => {
+  it("greets newcomers and sends them the scene", async () => {
     const { session, peers } = setup();
-    session.host("Test", false);
+    await session.host("Test", "private");
     wire.hooks!.onPeerJoin("p1");
     expect(wire.sent.filter((m) => m.target === "p1").map((m) => m.name)).toEqual(["hello", "av"]);
     deliver("hello", { name: "Ann", look: {}, synced: false, ver: 0 }, "p1");
@@ -173,7 +174,7 @@ describe("session", () => {
   it("a reopened copy gives way to someone who stayed in the room, whatever the counters say", async () => {
     const { store, session } = setup();
     store.world.objects.push(newObj(store.world, tri(), [0, 0, 0], [1, 1, 1]));
-    const id = session.host("Test", false);
+    const id = await session.host("Test", "private");
     // my copy got far ahead in its own count (counters are per browser), then I left
     store.world.objects.push(newObj(store.world, tri(), [1, 0, 0], [1, 1, 1]));
     (session.net as { ver: number }).ver = 500;
@@ -190,7 +191,7 @@ describe("session", () => {
   it("between two reopened copies the higher version wins", async () => {
     const { store, session } = setup();
     store.world.objects.push(newObj(store.world, tri(), [0, 0, 0], [1, 1, 1]));
-    const id = session.host("Test", false);
+    const id = await session.host("Test", "private");
     (session.net as { ver: number }).ver = 50;
     await session.leave();
     await session.join(id);
@@ -204,15 +205,14 @@ describe("session", () => {
 
   it("kick: tells everyone first, hangs up on the peer 2.5 s later, ignores them meanwhile", async () => {
     const { session, peers } = setup();
-    session.host("Test", false);
-    await flush();
+    await session.host("Test", "private");
     wire.hooks!.onPeerJoin("p1");
     deliver("hello", { name: "Ann", synced: true, ver: 1 }, "p1");
     vi.useFakeTimers();
     wire.sent.length = 0;
     await session.kick("p1");
     expect(wire.sent[0].name).toBe("hello");
-    expect(wire.sent[0].data.rules.banned).toEqual(["p1"]);
+    expect(wire.sent[0].data.rules.banned).toEqual(["peer:p1"]);
     expect(peers.remove).toHaveBeenCalledWith("p1");
     expect(wire.dropped).toEqual([]);
     vi.advanceTimersByTime(2500);
@@ -220,12 +220,11 @@ describe("session", () => {
     expect(wire.hooks!.accept("p1")).toBe(false);
   });
 
-  it("host-only building drops others' edits", async () => {
+  it("owner-only building drops others' edits", async () => {
     const { store, session } = setup();
-    session.host("Test", false);
-    await flush();
-    await session.setBuildRule(false);
-    expect(session.net.rules?.build).toBe("host");
+    await session.host("Test", "private");
+    await session.setEveryoneBuilds(false);
+    expect(session.net.rules?.build).toBe("owner");
     expect(session.canIBuild()).toBe(true);
     expect(session.canBuild("p1")).toBe(false);
     wire.hooks!.onPeerJoin("p1");
@@ -234,13 +233,45 @@ describe("session", () => {
     expect(store.byId(theirs.id)).toBeUndefined();
   });
 
-  it("chat goes to the room, to the scripts and over my head", () => {
+  it("chat goes to the room, to the scripts and over my head", async () => {
     const { session, peers, scripts } = setup();
-    session.host("Test", false);
+    await session.host("Test", "private");
     session.say("  hello\u0000 ");
     expect(wire.sent.at(-1)).toMatchObject({ name: "chat", data: { text: "hello" } });
     expect(scripts.hear).toHaveBeenCalledWith("hello", "Me");
     expect(peers.say).toHaveBeenCalledWith({ kind: "self" }, "hello");
     expect(session.net.chat.at(-1)).toMatchObject({ text: "hello", self: true });
+  });
+
+  it("the owner lets one person build, and their changes can be undone after they left", async () => {
+    const { store, session } = setup();
+    await session.host("Test", "private");
+    await session.setEveryoneBuilds(false);
+    wire.hooks!.onPeerJoin("p1");
+    deliver("hello", { name: "Ann", look: {}, synced: true, ver: 1 }, "p1");
+    await session.letBuild("p1", true);
+    expect(session.canBuild("p1")).toBe(true);
+    const theirs = newObj({ seq: 50, objects: [] }, tri(), [5, 5, 5], [1, 1, 1]);
+    deliver("objs", { set: [theirs], del: [], order: [], ver: 0 }, "p1");
+    expect(store.byId(theirs.id)).toBeDefined();
+    wire.hooks!.onPeerLeave("p1");
+    expect(session.changers()).toMatchObject([{ name: "Ann", objects: 1, here: "" }]);
+    expect(session.undoPerson(session.changers()[0].who)).toBe(1);
+    expect(store.byId(theirs.id)).toBeUndefined();
+  });
+
+  it("a public room runs on its owner, is listed while the owner is in, and guests watch", async () => {
+    const { session } = setup();
+    await session.host("Plaza", "public");
+    expect(session.amAuthority()).toBe(true);
+    wire.hooks!.onPeerJoin("a0");
+    deliver("hello", { name: "Ann", look: {}, synced: true, ver: 1 }, "a0");
+    // the smallest id would run a private room; a public one stays with its owner
+    expect(session.authorityId()).toBe("me");
+    expect(session.canBuild("a0")).toBe(false);
+    session.tick(2);
+    expect(listing.announce).toHaveBeenCalled();
+    await session.leave();
+    expect(listing.withdraw).toHaveBeenCalled();
   });
 });

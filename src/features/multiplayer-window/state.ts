@@ -1,15 +1,22 @@
 /** The Multiplayer window as its parts see it: the deps, its body, and what it has learned so far. */
-import type { MultiplayerDeps, Report, RoomAd, SavedRoomInfo } from "./port";
+import type { MultiplayerDeps, PublicRoom, Report, SavedRoomInfo, WorldHead } from "./port";
+
+export type MpTab = "rooms" | "public" | "gallery" | "settings";
 
 export interface MpState {
-  /** public rooms, as last listed */
-  rooms: RoomAd[];
-  /** rooms saved in this browser */
+  tab: MpTab;
+  /** a room code from an invite link, waiting for a yes */
+  invite: string | null;
   mine: SavedRoomInfo[];
-  /** the last connection test */
+  publicRooms: PublicRoom[];
+  /** null until first loaded */
+  gallery: WorldHead[] | null;
+  myWorlds: WorldHead[];
+  galleryBusy: boolean;
+  /** the publish form is open */
+  publishing: boolean;
   report: Report | null;
   checking: boolean;
-  /** stops listening for public rooms; null when not listening */
   stopBrowse: (() => void) | null;
 }
 
@@ -20,4 +27,16 @@ export interface MpWindow {
   render(): void;
 }
 
-export const emptyState = (): MpState => ({ rooms: [], mine: [], report: null, checking: false, stopBrowse: null });
+export const emptyState = (): MpState => ({
+  tab: "rooms",
+  invite: null,
+  mine: [],
+  publicRooms: [],
+  gallery: null,
+  myWorlds: [],
+  galleryBusy: false,
+  publishing: false,
+  report: null,
+  checking: false,
+  stopBrowse: null,
+});

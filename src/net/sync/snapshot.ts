@@ -8,6 +8,7 @@ import { changed, quietly, send, sendHello, system } from "../context";
 import { acceptRules, banned } from "../rules";
 import { asRecord, cleanNum, cleanText, sanitizeObjects } from "../sanitize";
 import { MAX_OBJECTS, saveRoom } from "../saved-rooms";
+import { saveVaultNow, vaultWriter } from "../vault";
 import { settledWorld } from "./settled";
 
 /** room versions and sequence numbers are counters; anything past this is nonsense */
@@ -19,15 +20,15 @@ const SEQ_SPREAD = 1e6;
 export function sendSnapshot(ctx: Ctx, pid: string): void {
   if (banned(ctx, pid)) return;
   const n = ctx.net;
-  const snap = {
-    world: settledWorld(ctx),
-    room: n.name,
-    pub: n.isPublic,
-    adv: n.advertiser,
-    ver: n.ver,
-    rules: n.rules,
-  };
-  send(ctx, "snap", snap, pid);
+  // whoever gets the scene from us has our changes: they are no longer ours alone
+  n.pending = false;
+  // reached only through the relays, in a room kept on them: they load the room's copy there, brought up to date
+  // (much lighter on the relays than the snapshot in parts through the channel)
+  if (ctx.link?.routeOf(pid) === "relay" && vaultWriter(ctx)) {
+    void saveVaultNow(ctx).then(() => send(ctx, "vsnap", { ver: n.ver }, pid));
+    return;
+  }
+  send(ctx, "snap", { world: settledWorld(ctx), room: n.name, ver: n.ver, rules: n.rules }, pid);
 }
 
 /** replace the scene without echoing it into the room: no history, no selection, no running scripts */
@@ -39,10 +40,7 @@ export function loadWorld(ctx: Ctx, world: World): void {
 }
 
 function takeRoomInfo(ctx: Ctx, d: Record<string, unknown>): void {
-  const n = ctx.net;
-  if (typeof d.room === "string") n.name = cleanText(d.room, 60) || n.name;
-  n.isPublic = !!d.pub;
-  n.advertiser = typeof d.adv === "string" ? d.adv : "";
+  if (typeof d.room === "string") ctx.net.name = cleanText(d.room, 60) || ctx.net.name;
 }
 
 export function onSnap(ctx: Ctx, raw: unknown): void {
