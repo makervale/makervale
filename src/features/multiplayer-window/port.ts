@@ -29,6 +29,8 @@ export interface MultiplayerDeps {
   bus: Bus;
   session: Session;
   identity: Me;
+  /** one script's share of the room's script time in the last second, %; null where scripts don't run here */
+  scriptShare(id: string): number | null;
   /** where the window goes; #stage by default */
   stage?: HTMLElement;
 }

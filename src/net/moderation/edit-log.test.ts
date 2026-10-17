@@ -40,9 +40,21 @@ describe("undo one person's changes", () => {
     expect(plan.get("b")?.pos).toEqual([0, 0, 0]);
   });
 
-  it("leaves objects the owner changed by hand since", () => {
-    const changes: Change[] = [{ at: 1, who: "grief", id: "d", before: obj("d", 0), after: obj("d", 9) }];
+  it("leaves objects the owner changed by hand since (the owner's edits are logged too)", () => {
+    const changes: Change[] = [
+      { at: 1, who: "grief", id: "d", before: obj("d", 0), after: obj("d", 9) },
+      { at: 2, who: "owner", id: "d", before: null, after: obj("d", 4) },
+    ];
     expect(undoPlan(changes, "grief", scene([obj("d", 4)])).size).toBe(0);
+  });
+
+  it("undoes a change even if a script changed the object since", () => {
+    const changes: Change[] = [{ at: 1, who: "grief", id: "e", before: obj("e", 0), after: obj("e", 9) }];
+    const scripted: Obj = {
+      ...obj("e", 9),
+      scriptState: { src: "", vars: { lit: true }, home: { pos: [9, 0, 0], quat: [0, 0, 0, 1], size: [1, 1, 1] } },
+    };
+    expect(undoPlan(changes, "grief", scene([scripted]))).toEqual(new Map([["e", obj("e", 0)]]));
   });
 
   it("keeps a copy a minute, for half an hour", () => {

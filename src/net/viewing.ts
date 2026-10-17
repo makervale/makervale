@@ -19,6 +19,7 @@ export async function view(ctx: Ctx, world: World, what: Viewing): Promise<void>
   scenes.set(ctx, structuredClone(world));
   loadWorld(ctx, world);
   ctx.net.viewing = what;
+  ctx.deps.scripts.resync();
   ctx.deps.bus.emit("build:allowed", { allowed: false });
   changed(ctx);
 }

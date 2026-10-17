@@ -62,6 +62,18 @@ function onChange(win: MpWindow, t: HTMLInputElement): void {
 export function wireActions(win: MpWindow): void {
   win.body.addEventListener("click", (e) => onClick(win, e.target as HTMLElement));
   win.body.addEventListener("change", (e) => onChange(win, e.target as HTMLInputElement));
+  // "toggle" doesn't bubble: listen on the way down
+  win.body.addEventListener(
+    "toggle",
+    (e) => {
+      const d = e.target as HTMLDetailsElement;
+      const id = d.dataset?.fold;
+      if (!id) return;
+      if (d.open) win.state.folds.add(id);
+      else win.state.folds.delete(id);
+    },
+    true,
+  );
   win.body.addEventListener("keydown", (e) => {
     const t = e.target as HTMLInputElement;
     if (e.key === "Enter" && t.id === "mp-code") {

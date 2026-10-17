@@ -1,0 +1,63 @@
+/* the Limits window */
+#limits {
+  bottom: calc(var(--bar-h) + 12px);
+  right: 10px;
+  width: min(330px, calc(100% - 20px));
+}
+.lim {
+  padding: 6px 12px 12px;
+}
+.lim h4 {
+  margin: 12px 0 6px;
+}
+.lim .note {
+  margin: 6px 0;
+}
+.lim-meter {
+  display: grid;
+  grid-template-columns: 96px 1fr 38px;
+  align-items: center;
+  gap: 2px 8px;
+  margin: 6px 0;
+  font-size: 12px;
+  color: var(--ltgray);
+}
+.lim-bar {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--line);
+  overflow: hidden;
+}
+.lim-bar i {
+  display: block;
+  height: 100%;
+  background: var(--emph);
+}
+.lim-meter.busy .lim-bar i {
+  background: #e3b341;
+}
+.lim-meter.full .lim-bar i {
+  background: #e5534b;
+}
+.lim-pct {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--white);
+}
+.lim-about {
+  grid-column: 1 / -1;
+  font-size: 11px;
+  color: var(--mdgray);
+}
+.lim-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0 4px;
+  color: var(--ltgray);
+  cursor: pointer;
+}
+.bottombar .stats:hover {
+  color: var(--ltgray);
+  cursor: pointer;
+}

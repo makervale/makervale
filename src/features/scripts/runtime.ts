@@ -12,6 +12,8 @@ import { act } from "./actions";
 import type { ScriptDeps } from "./deps";
 import { performanceSeconds, standaloneHooks } from "./deps";
 import { ScriptErrors } from "./errors";
+import { ScriptNotes } from "./notes";
+import { ACTION_GAS, Gas } from "./gas";
 import type { FrameEnv } from "./frame";
 import { runFrame } from "./frame";
 import { placementOf } from "./pose";
@@ -34,11 +36,14 @@ export class ScriptRuntime implements ScriptBridge {
   private hooks: ScriptNetHooks = standaloneHooks();
   private readonly running = new Map<string, Running>();
   private readonly tweens: Tweens;
+  readonly gas = new Gas();
+  private readonly notes: ScriptNotes;
   private readonly clock: Clock;
   private readonly actEnv: ActEnv;
 
   constructor(private readonly deps: ScriptDeps) {
     this.clock = { now: deps.now ?? performanceSeconds, random: deps.random ?? Math.random };
+    this.notes = new ScriptNotes(deps.bus);
     this.errors = new ScriptErrors(deps.bus, (id, message) => {
       const o = deps.store.byId(id);
       deps.commands.notice(`Script on "${o ? o.name : id}" stopped: ${message}`);
@@ -56,6 +61,12 @@ export class ScriptRuntime implements ScriptBridge {
       say: (o, text) => this.hooks.onSay({ id: o.id, name: o.name }, text),
       push: (o, vel) => deps.bus.emit("physics:push", { id: o.id, vel }),
       avatarAt: (name) => this.hooks.avatars().find((a) => a.name === name)?.pos ?? null,
+      fits: (o, pose) => deps.commands.space.checkIncoming([{ ...o, ...pose }], []).ok,
+      blocked: (o) => {
+        const r = this.running.get(o.id);
+        this.notes.add(o.id, "blocked", this.clock.now());
+        if (r) fire(r, "blocked");
+      },
       play: (o, note, instrument) => {
         deps.bus.emit("sound:play", { id: o.id, note, instrument });
         this.hooks.onPlay(o.id, note, instrument);
@@ -67,8 +78,18 @@ export class ScriptRuntime implements ScriptBridge {
     this.hooks = hooks;
   }
 
+  /** scripts run, and so are measured, only here: on the authority (alone, always) */
+  get measuring(): boolean {
+    return this.hooks.isAuthority();
+  }
+
   get runningCount(): number {
     return this.running.size;
+  }
+
+  /** what the script just ran into (resting, blocked), if anything */
+  note(id: string): string | null {
+    return this.notes.text(id, this.clock.now());
   }
 
   error(id: string): string {
@@ -156,11 +177,17 @@ export class ScriptRuntime implements ScriptBridge {
     this.tweens.tick();
     if (!this.hooks.isAuthority()) return;
     const env = this.frameEnv();
+    this.gas.tick(env.t, this.deps.store.world.objects.filter((o) => o.body).length);
     let budget = FRAME_BUDGET;
     for (const [id, r] of this.running) {
       const o = this.deps.store.byId(id);
       if (!o) this.running.delete(id);
-      else budget = runFrame(o, r, budget, env);
+      else if (this.gas.tired(id)) this.notes.add(id, "rest", env.t);
+      else {
+        const left = runFrame(o, r, budget, env);
+        this.gas.spend(id, budget - left);
+        budget = left;
+      }
     }
   }
 
@@ -183,7 +210,10 @@ export class ScriptRuntime implements ScriptBridge {
     return {
       t: this.clock.now(),
       avatars: this.running.size ? this.hooks.avatars() : [],
-      act: (o, r, y) => act({ o, r, a: y.a, dur: y.dur, line: y.line, env: this.actEnv }, y.n),
+      act: (o, r, y) => {
+        this.gas.spend(o.id, ACTION_GAS);
+        return act({ o, r, a: y.a, dur: y.dur, line: y.line, env: this.actEnv }, y.n);
+      },
       fail: (id, message) => this.errors.set(id, message),
       saveState: (o, state) => this.saveState(o, state),
     };

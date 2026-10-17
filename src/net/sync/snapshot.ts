@@ -1,10 +1,10 @@
 /**
- * The whole scene for a newcomer. The synced peer with the smallest id (the authority) sends it; the newcomer's own
+ * The whole scene for a newcomer. The authority (authority.ts) sends it; the newcomer's own
  * scene is replaced and its history cleared, so an undo can't push the old scene into the room.
  */
 import type { World } from "@/world/model";
 import type { Ctx } from "../context";
-import { changed, quietly, send, sendHello, system } from "../context";
+import { authorityId, changed, quietly, send, sendHello, system } from "../context";
 import { acceptRules, banned } from "../rules";
 import { asRecord, cleanNum, cleanText, sanitizeObjects } from "../sanitize";
 import { MAX_OBJECTS, saveRoom } from "../saved-rooms";
@@ -39,16 +39,30 @@ export function loadWorld(ctx: Ctx, world: World): void {
   bus.emit("history:changed", { entry: null });
 }
 
+/**
+ * The scene is taken from the authority only, so no one else can hand a newcomer a scene of their own. Anyone
+ * else's goes unheard, and the newcomer says hello again, so the authority (who may not have seen it yet) answers.
+ */
+export function fromAuthority(ctx: Ctx, from: string): boolean {
+  if (from === authorityId(ctx)) return true;
+  sendHello(ctx);
+  return false;
+}
+
 function takeRoomInfo(ctx: Ctx, d: Record<string, unknown>): void {
   if (typeof d.room === "string") ctx.net.name = cleanText(d.room, 60) || ctx.net.name;
 }
 
-export function onSnap(ctx: Ctx, raw: unknown): void {
+export async function onSnap(ctx: Ctx, raw: unknown, from: string): Promise<void> {
   const d = asRecord(raw);
   const world = asRecord(d.world);
   const n = ctx.net;
+  const room = n.id;
   if (n.synced || !Array.isArray(world.objects)) return;
-  if (d.rules) void acceptRules(ctx, d.rules);
+  // who may build decides who judges the room: know it before taking part
+  if (d.rules) await acceptRules(ctx, d.rules);
+  if (n.synced || n.id !== room) return;
+  if (!fromAuthority(ctx, from)) return;
   const objects = sanitizeObjects(world.objects, MAX_OBJECTS);
   const seq = Math.floor(cleanNum(world.seq, 1, MAX_COUNTER) || 1);
   loadWorld(ctx, { objects, seq: seq + SEQ_GAP + Math.floor(Math.random() * SEQ_SPREAD) });

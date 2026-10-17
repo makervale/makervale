@@ -5,6 +5,7 @@ import { Store } from "@/app/store";
 import { genIcosphere } from "@/lib/mesh/generators";
 import type { Mover } from "@/lib/physics";
 import type { ObjectViews } from "@/render/objects";
+import type { Vec3 } from "@/lib/vec";
 import { newObj } from "@/world/model";
 import { Physics } from "./simulator";
 
@@ -25,7 +26,27 @@ function setup() {
       physics.tick(1 / 60);
     }
   };
-  return { ball: () => store.byId(ball.id)!, run };
+  return { ball: () => store.byId(ball.id)!, run, store, commands, physics };
+}
+
+/** something far heavier than the sand limit allows in one place */
+function dense(store: Store, at: Vec3) {
+  const fan = {
+    v: [
+      [0, 0, 0],
+      [1, 0, 0],
+    ] as Vec3[],
+    f: [] as number[][],
+    fm: [] as number[],
+  };
+  for (let i = 0; i < 44_000; i++) {
+    fan.v.push([i / 44_000, 1, 0]);
+    fan.f.push([0, 1, fan.v.length - 1]);
+    fan.fm.push(0);
+  }
+  const o = newObj(store.world, fan, at, [1, 1, 1], { name: "Dense" });
+  store.world.objects.push(o);
+  return o;
 }
 
 describe("Physics", () => {
@@ -40,6 +61,22 @@ describe("Physics", () => {
     run(4);
     expect(atKick).toBeGreaterThan(y0);
     expect(ball().pos[1] - atKick).toBeGreaterThan(2);
+  });
+
+  it("bounces off a place too full to take it, as off a wall", () => {
+    const { ball, run, store, commands, physics } = setup();
+    const wall = dense(store, [0, 30, 0.5]);
+    commands.space.follow([wall.id, ball().id]);
+    physics.push(ball().id, [0, 8, 0]);
+    let furthest = 0;
+    for (let i = 0; i < 6; i++) {
+      run(0.5);
+      furthest = Math.max(furthest, ball().pos[1]);
+    }
+    expect(furthest).toBeGreaterThan(6);
+    // the window round the dense thing reaches 8 m out from its cell
+    expect(furthest).toBeLessThan(24);
+    expect(ball().pos[1]).toBeLessThan(furthest);
   });
 
   it("settles onto the floor when placed a little above it", () => {

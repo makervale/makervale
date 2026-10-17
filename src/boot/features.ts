@@ -9,6 +9,7 @@ import * as gestures from "@/features/gestures";
 import * as liveTool from "@/features/live-tool";
 import * as manipulators from "@/features/manipulators";
 import * as menubar from "@/features/menubar";
+import * as limitsWindow from "@/features/limits-window";
 import * as multiplayer from "@/features/multiplayer-window";
 import * as phoneMode from "@/features/phone-mode";
 import * as pieMenu from "@/features/pie-menu";
@@ -87,6 +88,7 @@ function mountBuilding(core: Core, renderer: Renderer, bodies: Bodies, manip: ma
   toolsPanel.mount({ ...core, renderer, categories: CATEGORIES, prefs });
   const scripts = {
     scriptError: (id: string) => bodies.runtime.error(id) || null,
+    scriptNote: (id: string) => bodies.runtime.note(id),
     restartScript: (id: string) => bodies.runtime.restart(id),
     touchable,
   };
@@ -106,5 +108,17 @@ function mountPeople(core: Core, bodies: Bodies, who: Identity): void {
   };
   avatarWindow.mount({ bus, identity: who, avatar: avatarPort, session });
   gestures.mount({ bus });
-  multiplayer.mount({ bus, session, identity: who });
+  const gas = bodies.runtime.gas;
+  const runtime = bodies.runtime;
+  const scriptShare = (id: string) => (runtime.measuring ? gas.scriptShare(id) * 100 : null);
+  multiplayer.mount({ bus, session, identity: who, scriptShare });
+  const space = core.commands.space;
+  limitsWindow.mount({
+    bus,
+    levels: () => ({
+      scene: space.fill(),
+      tightest: space.ledger.fullest() * 100,
+      scripts: runtime.measuring ? gas.roomShare() * 100 : null,
+    }),
+  });
 }

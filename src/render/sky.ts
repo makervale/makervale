@@ -84,6 +84,7 @@ export class Sky {
     hemi.color.copy(s.ambientSky);
     hemi.groundColor.copy(s.ambientGround);
     hemi.intensity = s.ambientIntensity;
+    (this.parts.scene.fog as THREE.Fog).color.copy(s.bottom);
     const key = s.top.getHexString() + s.bottom.getHexString();
     if (key === this.lastSkyKey) return;
     this.lastSkyKey = key;

@@ -8,7 +8,7 @@ import { changed, sendHello, system } from "./context";
 import { acceptRules } from "./rules";
 import { saveRoom } from "./saved-rooms";
 import { keepMyVersion } from "./copies";
-import { loadWorld } from "./sync/snapshot";
+import { fromAuthority, loadWorld } from "./sync/snapshot";
 import type { VaultCopy } from "./vault";
 import { loadVault } from "./vault";
 
@@ -41,7 +41,7 @@ export async function openFromRelays(ctx: Ctx, code: string): Promise<void> {
   const copy = await loadVault(ctx, code, null);
   if (!copy || ctx.net.id !== code || ctx.net.synced) {
     if (!copy && ctx.net.id === code && !ctx.net.synced) {
-      system(ctx, "Nobody is in this room and it isn't kept online: waiting for someone who has it…");
+      system(ctx, "Nobody is in this room right now: waiting for someone who has it (in a public room, its owner)…");
     }
     return;
   }
@@ -65,6 +65,6 @@ export async function onVaultSnap(ctx: Ctx, from: string): Promise<void> {
   const code = n.id;
   const copy = await loadVault(ctx, code, n.rules?.owner ?? null);
   if (!copy || n.id !== code || (n.synced && !n.fresh)) return;
-  if (!n.peers.has(from)) return;
+  if (!fromAuthority(ctx, from)) return;
   await adoptVaultCopy(ctx, copy, true);
 }

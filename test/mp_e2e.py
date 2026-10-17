@@ -1,5 +1,6 @@
 """Two browsers in one room through a local relay: scene sync, script authority, forwarded touches, edits,
 host controls (build rule, kick) and getting your own scene back after leaving."""
+import json
 import sys
 from playwright.sync_api import sync_playwright
 
@@ -12,6 +13,16 @@ ARGS = ["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshade
 
 def obj(name):
     return f'{P}.store.world.objects.find(o => o.name === "{name}")'
+
+
+def until(pg, js, ms=20000):
+    """does `js` come true on this page within `ms`? Headless WebGL can stall a page for seconds, so a message's
+    arrival is waited for, not timed"""
+    try:
+        pg.wait_for_function(js, timeout=ms)
+        return True
+    except Exception:
+        return False
 
 
 def check(label, ok, detail=""):
@@ -55,13 +66,14 @@ with sync_playwright() as p:
     check("exactly one browser runs scripts", (ra == 0) != (rb == 0), f"A {ra} B {rb}")
 
     q0 = B.evaluate(f"() => {obj('Door')}.quat")
-    A.evaluate(f"() => {P}.bus.emit('object:touched', {{ id: {obj('Door')}.id }})"); B.wait_for_timeout(2500)
-    check("A's touch swings B's door", B.evaluate(f"() => {obj('Door')}.quat") != q0)
+    A.evaluate(f"() => {P}.bus.emit('object:touched', {{ id: {obj('Door')}.id }})")
+    check("A's touch swings B's door", until(B, f"() => JSON.stringify({obj('Door')}.quat) !== JSON.stringify({json.dumps(q0)})"))
 
     e0 = A.evaluate(f"() => JSON.stringify({obj('Lantern')}.materials)")
-    B.evaluate(f"() => {P}.bus.emit('object:touched', {{ id: {obj('Lantern')}.id }})"); B.wait_for_timeout(2500)
-    check("B's touch reaches the authority", A.evaluate(f"() => JSON.stringify({obj('Lantern')}.materials)") != e0)
-    check("…and comes back to B", B.evaluate(f"() => JSON.stringify({obj('Lantern')}.materials)") == A.evaluate(f"() => JSON.stringify({obj('Lantern')}.materials)"))
+    lit = f"() => JSON.stringify({obj('Lantern')}.materials) !== {json.dumps(e0)}"
+    B.evaluate(f"() => {P}.bus.emit('object:touched', {{ id: {obj('Lantern')}.id }})")
+    check("B's touch reaches the authority", until(A, lit))
+    check("…and comes back to B", until(B, lit) and B.evaluate(f"() => JSON.stringify({obj('Lantern')}.materials)") == A.evaluate(f"() => JSON.stringify({obj('Lantern')}.materials)"))
 
     # physics: the authority's ball moves on both screens
     auth, other = (A, B) if A.evaluate(f"() => {P}.session.amAuthority()") else (B, A)
@@ -89,12 +101,13 @@ with sync_playwright() as p:
     # music: a chime touched on one screen is heard on both
     for pg in (A, B):
         pg.evaluate(f"() => {{ window.__notes = []; {P}.bus.on('sound:play', (e) => window.__notes.push(e.note)); }}")
-    B.evaluate(f"() => {P}.bus.emit('object:touched', {{ id: {obj('Chime 5')}.id }})"); A.wait_for_timeout(2000)
+    B.evaluate(f"() => {P}.bus.emit('object:touched', {{ id: {obj('Chime 5')}.id }})")
+    until(A, "() => window.__notes.length > 0"); until(B, "() => window.__notes.length > 0")
     na, nb = A.evaluate("() => window.__notes"), B.evaluate("() => window.__notes")
     check("a chime is heard by everyone", na == [7] and nb == [7], f"A {na} B {nb}")
 
-    B.evaluate(f"() => {P}.session.say('hello from B')"); A.wait_for_timeout(1500)
-    check("chat reaches A", A.evaluate(f"() => {P}.session.net.chat.some(l => l.text === 'hello from B')"))
+    B.evaluate(f"() => {P}.session.say('hello from B')")
+    check("chat reaches A", until(A, f"() => {P}.session.net.chat.some(l => l.text === 'hello from B')"))
 
     crate = B.evaluate(f"() => {{ const P = {P}; const o = {obj('Crate')}; P.commands.selectObject(o, false); P.useTool('delete'); return o.id; }}")
     try:
@@ -104,14 +117,14 @@ with sync_playwright() as p:
         gone = False
     check("B's delete reaches A", gone)
 
-    A.evaluate(f"() => {P}.session.setEveryoneBuilds(false)"); B.wait_for_timeout(1500)
-    check("B may not build after the owner disallows", not B.evaluate(f"() => {P}.session.canIBuild()"))
-    A.evaluate(f"() => {P}.session.setEveryoneBuilds(true)"); B.wait_for_timeout(1500)
-    check("B may build again", B.evaluate(f"() => {P}.session.canIBuild()"))
+    A.evaluate(f"() => {P}.session.setEveryoneBuilds(false)")
+    check("B may not build after the owner disallows", until(B, f"() => !{P}.session.canIBuild()"))
+    A.evaluate(f"() => {P}.session.setEveryoneBuilds(true)")
+    check("B may build again", until(B, f"() => {P}.session.canIBuild()"))
 
     bid = B.evaluate(f"() => {P}.session.net.selfId")
-    A.evaluate(f"() => {P}.session.kick('{bid}')"); B.wait_for_timeout(5000)
-    check("kicked B is out of the room", not B.evaluate(f"() => {P}.session.inRoom()"))
+    A.evaluate(f"() => {P}.session.kick('{bid}')")
+    check("kicked B is out of the room", until(B, f"() => !{P}.session.inRoom()"))
     nb2 = B.evaluate(f"() => {P}.store.world.objects.length")
     check("B has its own scene back", nb2 == 3, str(nb2))
     A.screenshot(path=f"{OUT}/mp_A.png"); B.screenshot(path=f"{OUT}/mp_B.png")

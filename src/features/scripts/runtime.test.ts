@@ -255,4 +255,41 @@ describe("script runtime", () => {
     expect(s.said).toEqual(["still here"]);
     expect(s.runtime.error(s.obj().id)).toBe("");
   });
+
+  it("a move into a place that is too dense doesn't happen, and the script hears it", () => {
+    const s = setup('on touch { move 40, 0, 0 in 1 }\non blocked { say "no room" }');
+    const fan = {
+      v: [
+        [0, 0, 0],
+        [1, 0, 0],
+      ] as Vec3[],
+      f: [] as number[][],
+      fm: [] as number[],
+    };
+    for (let i = 0; i < 44_000; i++) {
+      fan.v.push([i / 44_000, 1, 0]);
+      fan.f.push([0, 1, fan.v.length - 1]);
+      fan.fm.push(0);
+    }
+    const wall = newObj(s.store.world, fan, [40, 0, 1], [1, 1, 1], { name: "Dense" });
+    s.store.world.objects.push(wall);
+    s.commands.space.follow([wall.id, s.obj().id]);
+    s.run(0.1);
+    s.bus.emit("object:touched", { id: s.obj().id });
+    s.run(1.5);
+    expect(s.obj().pos[0]).toBeCloseTo(0);
+    expect(s.said).toContain("no room");
+    expect(s.runtime.note(s.obj().id)).toMatch(/Blocked/);
+  });
+
+  it("a greedy script rests once it has spent its gas for the second", () => {
+    const s = setup("var n = 0\non start {\n while true {\n  repeat 20000 { n = n + 1 }\n  wait 0\n }\n}");
+    s.run(0.9);
+    expect(s.runtime.gas.tiredScripts()).toContain(s.obj().id);
+    const n = s.obj().scriptState?.vars.n;
+    s.run(0.04);
+    // resting: no more work this second
+    expect(s.obj().scriptState?.vars.n).toBe(n);
+    expect(s.runtime.note(s.obj().id)).toMatch(/Resting/);
+  });
 });

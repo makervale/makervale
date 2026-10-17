@@ -27,12 +27,14 @@ export interface PublicRoom {
   people: number;
   /** newcomers may build without asking */
   open: boolean;
+  /** share of the room's ceiling taken, % (lib/weight); null from older versions */
+  fill: number | null;
   /** seconds */
   at: number;
   expires: number;
 }
 
-export type Announcement = Pick<PublicRoom, "code" | "name" | "owner" | "people" | "open">;
+export type Announcement = Pick<PublicRoom, "code" | "name" | "owner" | "people" | "open" | "fill">;
 
 /* ---------- the owner's side ---------- */
 
@@ -78,6 +80,8 @@ const clean = (s: unknown, n: number): string => stripControl(String(s ?? "")).s
 const bounded = (x: unknown, lo: number, hi: number): number =>
   Math.max(lo, Math.min(hi, Math.floor(+(x as number) || lo)));
 
+const percent = (x: unknown): number | null => (typeof x === "number" ? bounded(x, 0, 100) : null);
+
 function parse(ev: NostrEvent): PublicRoom | "closed" | null {
   if (ev.kind !== APP_DATA_KIND || eventTag(ev, "d") !== TAG || !verifyEvent(ev)) return null;
   const expires = +eventTag(ev, "expiration") || 0;
@@ -99,6 +103,7 @@ function parse(ev: NostrEvent): PublicRoom | "closed" | null {
     ownerKey: ev.pubkey,
     people: bounded(c.people, 1, 999),
     open: c.open === true,
+    fill: percent(c.fill),
     at: ev.created_at,
     expires,
   };

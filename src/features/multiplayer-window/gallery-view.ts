@@ -1,6 +1,6 @@
 /** The Gallery tab: published worlds you can look at or copy, yours with their versions, and publishing. */
 import { esc } from "@/ui/dom";
-import { ago, objects } from "./format";
+import { ago, fillWord, objects } from "./format";
 import type { WorldHead } from "./port";
 import { publishFormHTML } from "./publish-view";
 import type { MpState } from "./state";
@@ -10,9 +10,10 @@ const key = (h: WorldHead) => esc(h.author + ":" + h.id);
 
 function worldRow(h: WorldHead): string {
   const v = latest(h);
+  const weight = fillWord(v.fill);
   const about = h.about ? `<span class="mp-about">${esc(h.about)}</span>` : "";
   return `<div class="mp-item"><div class="mp-item-t"><b>${esc(h.title)}</b>
-      <span>${esc(h.by)} · v${v.v} · ${objects(v.objects)} · ${ago(v.at)}</span>${about}</div>
+      <span>${esc(h.by)} · v${v.v} · ${objects(v.objects)}${weight ? " · " + weight : ""} · ${ago(v.at)}</span>${about}</div>
     <div class="mp-item-a"><button class="btn small quiet" data-hide="${key(h)}" title="Hide it from your Gallery">Hide</button>
       <button class="btn small" data-view="${key(h)}">View</button></div></div>`;
 }

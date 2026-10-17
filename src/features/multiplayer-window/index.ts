@@ -5,6 +5,7 @@
 import { toast } from "@/ui/toast";
 import { isOpen, onWindowToggled } from "@/ui/window";
 import { wireActions } from "./actions";
+import { relayStatusText } from "./format";
 import { gateBuilding } from "./build-gate";
 import { onStart } from "./invite";
 import type { MultiplayerDeps } from "./port";
@@ -16,12 +17,26 @@ import { createMultiplayerWindow } from "./view";
 
 export type { MultiplayerDeps } from "./port";
 
+/** what the Public tab shows of the list and the relays: it is redrawn only when this changes, so a button isn't
+ * swapped under the pointer each time an announcement is renewed */
+function publicShown(win: MpWindow): string {
+  const rooms = win.state.publicRooms.map((r) => [r.code, r.name, r.owner, r.people, r.open, r.fill]);
+  return JSON.stringify([rooms, relayStatusText(win.deps.session.relayStatus())]);
+}
+
+function redrawPublic(win: MpWindow): void {
+  const now = publicShown(win);
+  if (win.state.tab !== "public" || now === win.state.shownPublic) return;
+  win.state.shownPublic = now;
+  win.render();
+}
+
 function browsePublic(win: MpWindow, open: boolean): void {
   const s = win.deps.session;
   if (open && !win.state.stopBrowse && s.networkAllowed()) {
     win.state.stopBrowse = s.browsePublicRooms((rooms) => {
       win.state.publicRooms = rooms;
-      if (win.state.tab === "public") win.render();
+      redrawPublic(win);
     });
   } else if (!open && win.state.stopBrowse) {
     win.state.stopBrowse();
@@ -53,7 +68,7 @@ export function mount(deps: MultiplayerDeps): void {
   gateBuilding(deps);
   for (const event of ["room:changed", "room:joined", "identity:changed"] as const) deps.bus.on(event, win.render);
   deps.bus.on("room:left", () => void refreshMine(win));
-  // the owner's "Undo damage" follows what people change
+  // the owner's "Who changed what" follows what people change
   let soon: ReturnType<typeof setTimeout> | null = null;
   deps.bus.on("world:changed", () => {
     if (soon || !deps.session.inRoom() || !deps.session.amOwner()) return;
@@ -64,9 +79,7 @@ export function mount(deps: MultiplayerDeps): void {
   });
   deps.bus.on("room:ask", ({ id, name }) => askedToBuild(win, id, name));
   deps.bus.on("terms:accepted", () => onStart(win));
-  deps.session.onRelayStatus(() => {
-    if (win.state.tab === "public") win.render();
-  });
+  deps.session.onRelayStatus(() => redrawPublic(win));
   onWindowToggled((id, open) => {
     if (id !== "mp") return;
     win.render();

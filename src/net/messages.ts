@@ -47,6 +47,8 @@ export interface ObjsMsg {
   ver: number;
   /** 1 when the authority's scripts made these changes, not a person */
   s?: number;
+  /** the authority refused `to`'s edit of these objects (sync/verdict.ts): this is how they stand */
+  verdict?: { to: string; why: string };
 }
 
 export interface Transform {

@@ -14,6 +14,8 @@ export interface Entry {
   selectionAfter?: unknown;
   /** the tool that made this entry, so it can be re-run with other parameters */
   tool?: { id: string; params: Record<string, unknown> };
+  /** made while a whole scene was taken as it is: undo and redo don't ask the laws either */
+  asIs?: boolean;
 }
 
 interface OpenAction {
@@ -28,8 +30,14 @@ export interface HistoryHooks {
   world: () => World;
   getSelection: () => unknown;
   setSelection: (s: unknown) => void;
-  /** these objects just changed because of an action, undo, redo or cancel */
-  applied: (ids: string[]) => void;
+  /** these objects just changed because of an action, undo or redo; `reverted`: they went back to how they were
+   * (a cancel, or an action that may not stand), so nobody changed them */
+  applied: (ids: string[], reverted?: boolean) => void;
+  /** may an action (or an undo, a redo) that changed these objects stand? false takes it back at once (the laws of
+   * space, app/space.ts) */
+  permits?: (ids: string[]) => boolean;
+  /** a whole scene is being taken as it is right now */
+  asIs?: () => boolean;
 }
 
 const LIMIT = 200;
@@ -42,8 +50,8 @@ export class History {
   readonly undoStack: Entry[] = [];
   readonly redoStack: Entry[] = [];
   private open: OpenAction | null = null;
-  /** objects reverted for a re-run; reported on the next end() even if nothing changed */
-  private pendingRerun: string[] | null = null;
+  /** the entry taken back for a re-run; its objects are reported on the next end() even if nothing changed */
+  private rerun: Entry | null = null;
 
   constructor(private readonly hooks: HistoryHooks) {}
 
@@ -85,8 +93,18 @@ export class History {
     for (const id of action.before.keys()) after.set(id, this.snapshotOf(world, id));
 
     const changed = [...action.before].some(([id, b]) => !sameObject(b, after.get(id) ?? null));
+    const rerun = this.rerun;
     this.flushPendingRerun(changed);
     if (!changed) return null;
+    // a re-run changed what the run it replaced made, too (an object it created is gone now)
+    const ids = [...new Set([...after.keys(), ...(rerun ? rerun.before.keys() : [])])];
+    if (!this.permits(ids)) {
+      this.restore(action.before, action.orderBefore);
+      // a re-run that may not stand leaves the run it replaced as it was
+      if (rerun) this.putBack(rerun);
+      this.hooks.applied(ids, true);
+      return null;
+    }
 
     const entry: Entry = {
       label: action.label,
@@ -97,26 +115,30 @@ export class History {
       selectionBefore: action.selectionBefore,
       selectionAfter: this.hooks.getSelection(),
       tool,
+      asIs: this.hooks.asIs?.() || undefined,
     };
     this.push(entry);
-    this.hooks.applied([...after.keys()]);
+    this.hooks.applied(ids);
     return entry;
   }
 
   cancel(): void {
     if (!this.open) return;
-    const ids = [...this.open.before.keys(), ...(this.pendingRerun ?? [])];
-    this.pendingRerun = null;
+    const ids = [...this.open.before.keys(), ...(this.rerun ? this.rerun.before.keys() : [])];
+    this.rerun = null;
     this.restore(this.open.before, this.open.orderBefore);
     this.open = null;
-    this.hooks.applied(ids);
+    this.hooks.applied(ids, true);
   }
 
   undo(): Entry | null {
     if (this.open) this.end();
     const entry = this.undoStack.pop();
     if (!entry) return null;
-    this.restore(entry.before, entry.orderBefore);
+    if (!this.travel(entry, entry.before, entry.orderBefore)) {
+      this.undoStack.push(entry);
+      return null;
+    }
     this.redoStack.push(entry);
     this.hooks.setSelection(entry.selectionBefore);
     this.hooks.applied([...entry.before.keys()]);
@@ -126,7 +148,10 @@ export class History {
   redo(): Entry | null {
     const entry = this.redoStack.pop();
     if (!entry) return null;
-    this.restore(entry.after, entry.orderAfter);
+    if (!this.travel(entry, entry.after, entry.orderAfter)) {
+      this.redoStack.push(entry);
+      return null;
+    }
     this.undoStack.push(entry);
     this.hooks.setSelection(entry.selectionAfter);
     this.hooks.applied([...entry.after.keys()]);
@@ -139,7 +164,7 @@ export class History {
     if (!entry) return null;
     this.restore(entry.before, entry.orderBefore);
     this.hooks.setSelection(entry.selectionBefore);
-    this.pendingRerun = [...entry.before.keys()];
+    this.rerun = entry;
     return entry;
   }
 
@@ -161,10 +186,33 @@ export class History {
   }
 
   private flushPendingRerun(changed: boolean): void {
-    if (!this.pendingRerun) return;
-    const ids = this.pendingRerun;
-    this.pendingRerun = null;
-    if (!changed) this.hooks.applied(ids);
+    if (!this.rerun) return;
+    const ids = [...this.rerun.before.keys()];
+    this.rerun = null;
+    if (!changed) this.hooks.applied(ids, true);
+  }
+
+  /**
+   * Take the scene to one side of an entry (undo, redo), if the laws let it. If not, the scene as it is now comes
+   * back, not as it was when the entry was made: someone (a peer, a script) may have changed it since.
+   */
+  private travel(entry: Entry, to: Snapshot, order: string[]): boolean {
+    const world = this.hooks.world();
+    const now: Snapshot = new Map([...to.keys()].map((id) => [id, this.snapshotOf(world, id)]));
+    const orderNow = world.objects.map((o) => o.id);
+    this.restore(to, order);
+    if (entry.asIs || this.permits(to.keys())) return true;
+    this.restore(now, orderNow);
+    return false;
+  }
+
+  private putBack(entry: Entry): void {
+    this.restore(entry.after, entry.orderAfter);
+    this.undoStack.push(entry);
+  }
+
+  private permits(ids: Iterable<string>): boolean {
+    return !this.hooks.permits || this.hooks.permits([...ids]);
   }
 
   private push(entry: Entry): void {

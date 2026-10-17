@@ -1,6 +1,6 @@
 /** Settings: the connection test and its report, your own TURN server (advanced), consent, the version. */
 import { esc } from "@/ui/dom";
-import { checkMark } from "./format";
+import { checkMark, fold } from "./format";
 import type { Check, Report, TurnPrefs } from "./port";
 import type { MpState } from "./state";
 import { BUILD } from "./version";
@@ -19,18 +19,22 @@ function relayFields(prefs: TurnPrefs): string {
   return field("Address", address) + `<div class="rl-pair">${field("Username", user)}${field("Password", pass)}</div>`;
 }
 
-export function relayHTML(prefs: TurnPrefs): string {
+export function relayHTML(prefs: TurnPrefs, folds: ReadonlySet<string>): string {
   const on = !!prefs.custom;
   const remove = on ? `<button class="btn small" id="mp-turn-clear">Remove</button>` : "";
-  return `<details class="mp-fold"${on ? " open" : ""}><summary>Advanced: your own TURN server${on ? " · on" : ""}</summary>
-    <div class="rl-body">
+  return fold(
+    folds,
+    "turn",
+    `Advanced: your own TURN server${on ? " · on" : ""}`,
+    `<div class="rl-body">
       <p class="note">Not needed: when two routers can't connect directly, rooms go through the public relays on
         their own. A TURN server of your own makes those connections smoother. Free ones need an account, for
         example ExpressTURN (expressturn.com). The server then sees your room traffic (see Help › Privacy).</p>
       ${relayFields(prefs)}
       <div class="rl-actions">${remove}<button class="btn small primary" id="mp-turn-save">Save</button></div>
       <p class="note">Kept only in this browser, and used for the next room you open or join.</p>
-    </div></details>`;
+    </div>`,
+  );
 }
 
 function checkLine(c: Check): string {
@@ -63,5 +67,5 @@ export function connectionHTML(prefs: TurnPrefs, state: MpState): string {
   const label = state.checking ? "Testing…" : "Test my connection";
   const button = `<button class="btn small" id="mp-check" ${state.checking ? "disabled" : ""}>${label}</button>`;
   const row = `<div class="mp-row">${button}<span class="note">Will rooms work from here?</span></div>`;
-  return row + (state.report ? reportHTML(state.report) : "") + relayHTML(prefs) + WITHDRAW;
+  return row + (state.report ? reportHTML(state.report) : "") + relayHTML(prefs, state.folds) + WITHDRAW;
 }

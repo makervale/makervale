@@ -1,88 +1,36 @@
 /**
  * Edits. Whatever a local action touched goes to everyone, batched for a moment: changed objects in full, deleted
  * ones by id, and the scene order. The last change to an object wins. Edits from people who may not build are
- * dropped, except the authority's script results on objects that already run that script.
+ * dropped, except the authority's script results on objects that already run that script. Whether an edit keeps
+ * to the laws of space only the authority judges; the others take its verdict.
  */
 import type { Obj, World } from "@/world/model";
+import { upsert } from "@/world/model";
 import type { Ctx } from "../context";
-import { applyRemote, authorityId, inRoom, send } from "../context";
-import { recordRemote } from "../moderation";
-import { canBuild } from "../rules";
+import { amAuthority, applyRemote, authorityId, inRoom } from "../context";
+import { recordLocal, recordRemote } from "../moderation";
+import { canBuild } from "../rights";
 import { asRecord, cleanList, cleanNum, sanitizeObj, sanitizeObjects, validId } from "../sanitize";
-import { settled } from "./settled";
+import { endDrags, putBackDragged } from "./drag";
+import { queueObjs, sendObjs } from "./outbox";
+import { hearVerdict, verdictIn } from "./verdict";
 import { MAX_COUNTER } from "./snapshot";
 
-const FLUSH_MS = 60;
 const MAX_EDITS = 5000;
 const MAX_SCRIPT_EDITS = 500;
 
-interface Outbox {
-  dirty: Set<string>;
-  /** of those, the ones only scripts changed */
-  scripted: Set<string>;
-  timer: ReturnType<typeof setTimeout> | null;
-}
-const outboxes = new WeakMap<Ctx, Outbox>();
+/** objects the authority refused lately, and when */
+const refusals = new WeakMap<Ctx, Map<string, number>>();
+const REFUSED_MS = 10_000;
 
-function outboxOf(ctx: Ctx): Outbox {
-  let box = outboxes.get(ctx);
-  if (!box) outboxes.set(ctx, (box = { dirty: new Set(), scripted: new Set(), timer: null }));
-  return box;
-}
-
-/** send these objects (or their deletion) to the room soon */
-export function queueObjs(ctx: Ctx, ids: Iterable<string>, byScript = false): void {
-  if (!inRoom(ctx) || !ctx.net.synced) return;
-  const box = outboxOf(ctx);
-  for (const id of ids) {
-    if (byScript && !box.dirty.has(id)) box.scripted.add(id);
-    else if (!byScript) box.scripted.delete(id);
-    box.dirty.add(id);
-  }
-  if (!box.timer) box.timer = setTimeout(() => flushObjs(ctx), FLUSH_MS);
-}
-
-/** leaving: nothing queued goes anywhere */
-export function dropQueuedObjs(ctx: Ctx): void {
-  const box = outboxOf(ctx);
-  if (box.timer) clearTimeout(box.timer);
-  box.timer = null;
-  box.dirty.clear();
-  box.scripted.clear();
-}
-
-function flushObjs(ctx: Ctx): void {
-  const box = outboxOf(ctx);
-  const ids = [...box.dirty];
-  const scripted = new Set(box.scripted);
-  box.timer = null;
-  box.dirty.clear();
-  box.scripted.clear();
-  if (!inRoom(ctx)) return;
-  sendObjs(
-    ctx,
-    ids.filter((id) => !scripted.has(id)),
-    false,
-  );
-  sendObjs(ctx, [...scripted], true);
-}
-
-function sendObjs(ctx: Ctx, ids: string[], byScript: boolean): void {
-  const store = ctx.deps.store;
-  const set: Obj[] = [];
-  const del: string[] = [];
-  for (const id of ids) {
-    const o = store.byId(id);
-    if (o) set.push(settled(ctx, o));
-    else del.push(id);
-  }
-  const order = store.world.objects.map((o) => o.id);
-  const msg = { set, del, order, ver: ctx.net.ver, ...(byScript ? { s: 1 } : {}) };
-  if (set.length || del.length) send(ctx, "objs", msg);
+function refusalsOf(ctx: Ctx): Map<string, number> {
+  let m = refusals.get(ctx);
+  if (!m) refusals.set(ctx, (m = new Map()));
+  return m;
 }
 
 /** the scene changed here (a user action, undo, redo): count it and send it, unless it came from the room */
-export function onLocalEdit(ctx: Ctx, ids: string[] | undefined): void {
+export function onLocalEdit(ctx: Ctx, ids: string[] | undefined, reverted = false): void {
   if (ctx.applyingRemote || !inRoom(ctx) || !ids) return;
   const n = ctx.net;
   if (n.synced) {
@@ -91,6 +39,9 @@ export function onLocalEdit(ctx: Ctx, ids: string[] | undefined): void {
     // nobody else here to receive it: until someone does (or the relays do), this change is ours alone
     if (![...n.peers.values()].some((p) => p.synced)) n.pending = true;
   }
+  // a cancelled or refused action changed nothing in the end: the owner isn't the last to change those objects
+  if (!reverted) recordLocal(ctx, ids);
+  endDrags(ctx, ids);
   queueObjs(ctx, ids);
 }
 
@@ -104,15 +55,6 @@ function reorder(world: World, order: unknown): void {
   if (world.objects.every((o) => at.has(o.id))) world.objects.sort((a, b) => at.get(a.id)! - at.get(b.id)!);
 }
 
-function upsert(world: World, set: Obj[], del: string[]): void {
-  world.objects = world.objects.filter((o) => !del.includes(o.id));
-  for (const o of set) {
-    const i = world.objects.findIndex((x) => x.id === o.id);
-    if (i >= 0) world.objects[i] = o;
-    else world.objects.push(o);
-  }
-}
-
 /** objects the peer deleted are gone from the selection too */
 function fixSelection(ctx: Ctx): void {
   const { store, commands } = ctx.deps;
@@ -121,24 +63,66 @@ function fixSelection(ctx: Ctx): void {
   if (kept.length !== sel.objects.size || (sel.mode !== "object" && !kept.length)) commands.selectObjects(kept);
 }
 
+/**
+ * Only the authority judges the laws of space, so two edits made at once can't be refused on one screen and taken
+ * on another. A refused edit is answered with the authority's own copy of what it touched, to everyone: the verdict
+ * (verdict.ts).
+ */
+function judged(ctx: Ctx, set: Obj[], del: string[], from: string): boolean {
+  if (!amAuthority(ctx)) return true;
+  const v = ctx.deps.commands.space.checkIncoming(set, del);
+  if (v.ok) return true;
+  const touched = [...new Set([...del, ...set.map((o) => o.id)])];
+  putBackDragged(ctx, touched);
+  endDrags(ctx, touched);
+  sendObjs(ctx, touched, { verdict: { to: from, why: v.why } });
+  for (const id of touched) refusalsOf(ctx).set(id, Date.now());
+  return false;
+}
+
+/**
+ * The authority took an edit of objects it refused a moment ago. Its verdict may reach someone after this edit
+ * (they come from different peers) and undo it there, so its copy goes out again, after the verdict.
+ */
+function againAfterVerdict(ctx: Ctx, ids: string[]): void {
+  if (!amAuthority(ctx)) return;
+  const m = refusalsOf(ctx);
+  const since = Date.now() - REFUSED_MS;
+  for (const [id, at] of m) if (at < since) m.delete(id);
+  const again = ids.filter((id) => m.has(id));
+  if (again.length) sendObjs(ctx, again);
+}
+
 export function onObjs(ctx: Ctx, raw: unknown, from: string): void {
   const d = asRecord(raw);
   if (!ctx.net.synced || !raw) return;
-  if (!canBuild(ctx, from)) {
-    onScriptEdits(ctx, d, from);
-    return;
-  }
+  if (d.s === 1) return onScriptEdits(ctx, d, from);
+  const verdict = verdictIn(ctx, d, from);
+  if (!verdict && !canBuild(ctx, from)) return;
   const store = ctx.deps.store;
-  const del = cleanList(d.del, MAX_EDITS).filter((id): id is string => validId(id) && !!store.byId(id));
-  const set = sanitizeObjects(d.set, MAX_EDITS);
+  // each object once: set or deleted, never both, so none is counted out of the laws twice
+  const set = [...new Map(sanitizeObjects(d.set, MAX_EDITS).map((o) => [o.id, o])).values()];
+  const setIds = new Set(set.map((o) => o.id));
+  const del = [...new Set(cleanList(d.del, MAX_EDITS))].filter(
+    (id): id is string => validId(id) && !!store.byId(id) && !setIds.has(id),
+  );
+  if (!verdict && !judged(ctx, set, del, from)) return;
+  recordRemote(ctx, from, set, del);
+  take(ctx, d, set, del);
+  if (verdict) hearVerdict(ctx, verdict);
+  else againAfterVerdict(ctx, [...setIds, ...del]);
+}
+
+function take(ctx: Ctx, d: Record<string, unknown>, set: Obj[], del: string[]): void {
+  const store = ctx.deps.store;
   const touched = [...del, ...set.map((o) => o.id)];
-  if (d.s !== 1) recordRemote(ctx, from, set, del);
   const change = () => {
     upsert(store.world, set, del);
     reorder(store.world, d.order);
   };
   if (touched.length) applyRemote(ctx, touched, change);
   else reorder(store.world, d.order);
+  endDrags(ctx, touched);
   ctx.net.ver = Math.max(ctx.net.ver + 1, cleanNum(d.ver, 0, MAX_COUNTER) || 0);
   ctx.net.fresh = false;
   if (touched.length) fixSelection(ctx);
@@ -150,7 +134,10 @@ function scriptMayChange(cur: Obj | undefined, next: Obj): cur is Obj {
   return cur.mesh.v.length === next.mesh.v.length && cur.mesh.f.length === next.mesh.f.length;
 }
 
-/** only the host may build: the authority's scripts may still update scripted objects */
+/**
+ * What scripts changed. They run on the authority only and change only their own object's transform, colours and
+ * state, so that is all a script edit may do, whoever sends it; and it is nobody's edit, so it isn't logged.
+ */
 function onScriptEdits(ctx: Ctx, d: Record<string, unknown>, from: string): void {
   if (from !== authorityId(ctx)) return;
   const store = ctx.deps.store;

@@ -1,4 +1,4 @@
-/** The owner's clicks in a room: kind, lockdown, who builds, removing people, undoing damage. */
+/** The owner's clicks in a room: kind, lockdown, who builds, removing people, seeing and undoing their changes. */
 import { toast } from "@/ui/toast";
 import type { MpWindow } from "./state";
 
@@ -24,6 +24,14 @@ function undo(win: MpWindow, who: string, name: string): void {
   );
 }
 
+function show(win: MpWindow, who: string, name: string): void {
+  const s = win.deps.session;
+  const wasShown = s.showingChanges(who);
+  const n = s.toggleChanges(who);
+  if (!wasShown && !n) toast(`Nothing of ${name}'s is left in the scene`);
+  win.render();
+}
+
 function rewind(win: MpWindow, minutes: number): void {
   const n = win.deps.session.rewind(minutes);
   toast(n ? `The room is back to ${minutes} min ago. Ctrl+Z undoes that.` : "Nothing changed since then.");
@@ -33,12 +41,13 @@ function rewind(win: MpWindow, minutes: number): void {
 export function ownerClick(win: MpWindow, t: HTMLElement): boolean {
   const s = win.deps.session;
   const pick = (attr: string) => t.closest<HTMLElement>(`[${attr}]`);
-  const [kind, let_, kickBtn, undoBtn, rewindBtn] = [
+  const [kind, let_, kickBtn, undoBtn, rewindBtn, showBtn] = [
     pick("data-kind"),
     pick("data-let"),
     pick("data-kick"),
     pick("data-undo"),
     pick("data-rewind"),
+    pick("data-show"),
   ];
   if (kind) confirmPublic(win);
   else if (t.closest("#mp-lockdown")) void s.lockdown().then(() => toast("Lockdown: only you build now."));
@@ -46,6 +55,7 @@ export function ownerClick(win: MpWindow, t: HTMLElement): boolean {
   else if (kickBtn) kick(win, kickBtn.dataset.kick!, kickBtn.dataset.name ?? "them");
   else if (undoBtn) undo(win, undoBtn.dataset.undo!, undoBtn.dataset.name ?? "their");
   else if (rewindBtn) rewind(win, +rewindBtn.dataset.rewind!);
+  else if (showBtn) show(win, showBtn.dataset.show!, showBtn.dataset.name ?? "them");
   else return false;
   return true;
 }

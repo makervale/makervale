@@ -20,6 +20,8 @@ export interface ManipulatorPort {
 /** the script runtime (owned by features/scripts); its errors change come as "scripts:errors" */
 export interface ScriptsPort {
   scriptError(id: string): string | null;
+  /** what the running script just ran into (resting, blocked); it goes on */
+  scriptNote(id: string): string | null;
   restartScript(id: string): void;
   /** the object's script reacts to touch */
   touchable(o: Obj): boolean;

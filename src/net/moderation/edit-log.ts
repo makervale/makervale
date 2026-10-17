@@ -5,6 +5,7 @@
  */
 import type { Obj, World } from "@/world/model";
 
+/** one change by one person; the owner's own are logged without copies (before and after both null) */
 export interface Change {
   at: number;
   who: string;
@@ -56,13 +57,11 @@ export class EditLog {
   }
 }
 
-const same = (a: Obj | null | undefined, b: Obj | null | undefined): boolean =>
-  JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
-
 /**
  * What "undo their changes" sets each object to (null: delete it). An object they created goes, even if someone
- * moved it since. An object they changed goes back to how it was before their changes, unless someone else changed
- * it after them: then that later change stands. `current` is the scene now.
+ * moved it since. An object they changed goes back to how it was before their changes, unless someone else (the
+ * owner included: their edits are logged too) changed it after them: then that later change stands. What scripts
+ * did to it since doesn't count. `current` is the scene now.
  */
 export function undoPlan(
   changes: Change[],
@@ -83,7 +82,7 @@ export function undoPlan(
       continue;
     }
     const last = theirs[theirs.length - 1];
-    if (last !== list.length - 1 || !same(current(id), list[last].after)) continue;
+    if (last !== list.length - 1) continue;
     let first = last;
     while (first > 0 && list[first - 1].who === who) first--;
     plan.set(id, list[first].before);

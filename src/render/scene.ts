@@ -17,6 +17,10 @@ export interface SceneParts {
 const GROUND_SIZE_M = 512;
 const GRID_TILES = 64;
 const SHADOW_EXTENT_M = 22;
+const NORMAL_BIAS_M = 0.02;
+/** the haze over the distance, m: it hides where far things are drawn simply, and past FOG_FAR nothing is drawn */
+const FOG_NEAR = 110;
+export const FOG_FAR = 320;
 
 function makeSun(): THREE.DirectionalLight {
   const sun = new THREE.DirectionalLight(0xffffff, 1.9);
@@ -31,8 +35,31 @@ function makeSun(): THREE.DirectionalLight {
     far: 120,
   });
   sun.shadow.bias = -0.0005;
-  sun.shadow.normalBias = 0.02;
+  sun.shadow.normalBias = NORMAL_BIAS_M;
   return sun;
+}
+
+const MAX_SHADOW_EXTENT_M = 140;
+/** the shadowed square grows in steps of this factor, so it isn't redone every frame */
+const SHADOW_STEP = 1.25;
+
+/**
+ * Shadows are drawn in a square round what you look at. From afar it grows with the distance, so shadows don't end
+ * at an edge you can see; they get softer instead, as the same shadow map covers more ground. Returns the half
+ * width, m: the sun has to stand at least that far back, or ground on its side falls behind it.
+ */
+export function fitShadow(sun: THREE.DirectionalLight, viewDistance: number): number {
+  const wanted = Math.max(SHADOW_EXTENT_M, viewDistance * 0.9);
+  const stepped =
+    SHADOW_EXTENT_M * SHADOW_STEP ** Math.ceil(Math.log(wanted / SHADOW_EXTENT_M) / Math.log(SHADOW_STEP));
+  const extent = Math.min(MAX_SHADOW_EXTENT_M, stepped);
+  const cam = sun.shadow.camera;
+  if (cam.right === extent) return extent;
+  Object.assign(cam, { left: -extent, right: extent, top: extent, bottom: -extent, far: 120 + extent * 4 });
+  cam.updateProjectionMatrix();
+  // a shadow-map texel covers more ground: the bias grows with it, or surfaces shadow themselves in stripes
+  sun.shadow.normalBias = (NORMAL_BIAS_M * extent) / SHADOW_EXTENT_M;
+  return extent;
 }
 
 /** a metre grid in the page's colours, repeated over the ground */
@@ -75,6 +102,7 @@ export function createScene(): SceneParts {
   // the world is Z up; set before any camera.lookAt
   THREE.Object3D.DEFAULT_UP.set(0, 0, 1);
   const scene = new THREE.Scene();
+  scene.fog = new THREE.Fog(0xdfe9f3, FOG_NEAR, FOG_FAR);
   const gizmoScene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(50, 1, 0.02, 4000);
   const hemi = new THREE.HemisphereLight(0xdfe9f3, 0x8a8370, 1.2);

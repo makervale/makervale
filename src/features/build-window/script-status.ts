@@ -1,7 +1,13 @@
-/** The Script tab's status line: syntax error, "not applied yet", the runtime's error, or what the script does. */
+/**
+ * The Script tab's status line: syntax error, "not applied yet", the runtime's error, what the script just ran
+ * into (resting, blocked), or what it does.
+ */
 import { parse } from "@/lib/script";
 import type { Obj } from "@/world/model";
 import type { Build } from "./context";
+
+const NOTE_RECHECK_MS = 1000;
+let recheck: ReturnType<typeof setTimeout> | undefined;
 
 export const editor = (b: Build): HTMLTextAreaElement | null => b.root.querySelector<HTMLTextAreaElement>("#sc-src");
 
@@ -19,18 +25,29 @@ function runningText(b: Build, o: Obj): string {
   return b.deps.scripts.touchable(o) ? "Running. Click the object to touch it." : "Running.";
 }
 
-/** syntax first, then "not applied yet", then the runtime's error, then what it does */
+type Line = { kind: "ok" | "warn" | "bad"; text: string };
+
+/** syntax first, then "not applied yet", then the runtime's error, then a note, then what it does */
+function statusLine(b: Build, o: Obj): Line {
+  const area = editor(b);
+  const text = area ? area.value : o.script || "";
+  const syntax = syntaxError(text);
+  if (syntax) return { kind: "bad", text: syntax };
+  if (area && text !== (o.script || "")) return { kind: "ok", text: "Not applied yet (Ctrl+Enter)" };
+  const runtime = b.deps.scripts.scriptError(o.id);
+  if (runtime) return { kind: "bad", text: runtime };
+  const note = b.deps.scripts.scriptNote(o.id);
+  return note ? { kind: "warn", text: note } : { kind: "ok", text: runningText(b, o) };
+}
+
 export function scriptStatus(b: Build, id: string): void {
   const el = b.root.querySelector<HTMLElement>("#sc-status");
   const o = b.deps.store.byId(id);
   if (!el || !o) return;
-  const area = editor(b);
-  const text = area ? area.value : o.script || "";
-  const syntax = syntaxError(text);
-  const runtime = b.deps.scripts.scriptError(id);
-  const edited = !!area && text !== (o.script || "");
-  el.className = "sc-status " + (syntax || runtime ? "bad" : "ok");
-  if (syntax) el.textContent = syntax;
-  else if (edited) el.textContent = "Not applied yet (Ctrl+Enter)";
-  else el.textContent = runtime || runningText(b, o);
+  const line = statusLine(b, o);
+  el.className = "sc-status " + line.kind;
+  el.textContent = line.text;
+  // a note fades once the script stops running into it
+  clearTimeout(recheck);
+  if (line.kind === "warn") recheck = setTimeout(() => scriptStatus(b, id), NOTE_RECHECK_MS);
 }

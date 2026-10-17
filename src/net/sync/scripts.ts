@@ -9,7 +9,7 @@ import { canBuild } from "../rules";
 import { asRecord, cleanFx, cleanNum, validId } from "../sanitize";
 import type { Fx, ScriptNetHooks } from "../scripts-bridge";
 import { objectSaid } from "./chat";
-import { queueObjs } from "./objects";
+import { queueObjs } from "./outbox";
 
 /* scripted motion and script state are not part of the saved scene (world/resting.ts), so they don't move the
    room's version: only real edits make a copy newer */

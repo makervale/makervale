@@ -35,7 +35,9 @@ function advance(r: Running, th: Thread, t: number, budget: number, act: (y: Act
   th.ctx.steps = 0;
   for (;;) {
     const res = th.gen.next();
-    budget -= STEP_COST;
+    // the interpreter's own count of the work done, plus a fixed cost for the step itself
+    budget -= STEP_COST + th.ctx.steps;
+    th.ctx.steps = 0;
     if (res.done) {
       drop(r, th);
       return budget;

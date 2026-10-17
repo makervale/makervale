@@ -147,8 +147,10 @@ export function createSession(deps: SessionDeps): Session {
   deps.scripts.connect(scriptHooks(ctx));
   deps.physics.connect(physicsHooks(ctx));
   // local edits reach the room by listening; changes net makes itself are marked and not sent back
-  deps.bus.on("world:changed", (e) => onLocalEdit(ctx, e.ids));
+  deps.bus.on("world:changed", (e) => onLocalEdit(ctx, e.ids, e.reverted));
   deps.bus.on("world:dragging", (e) => onLocalDrag(ctx, e.ids));
+  // in a room the law is the same for everyone, its owner included: nobody brings in a scene over it
+  deps.commands.space.mayTakeAsIs = () => !inRoom(ctx);
   if (typeof window !== "undefined") window.addEventListener("pagehide", () => onPageHide(ctx));
   const parts = [roomApi(ctx), peopleApi(ctx, identity), ownerApi(ctx), galleryApi(ctx), connectionApi()];
   return Object.assign({}, ...parts) as Session;

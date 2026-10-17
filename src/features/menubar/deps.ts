@@ -7,5 +7,5 @@ export interface MenubarDeps {
   store: Store;
   bus: Bus;
   commands: Commands;
-  renderer: Pick<Renderer, "framing" | "views">;
+  renderer: Pick<Renderer, "framing" | "views" | "parts">;
 }

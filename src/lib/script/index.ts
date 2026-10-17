@@ -9,7 +9,8 @@
  *      say who + " opened the door"
  *    }
  *
- *  Events: on start · on touch · on timer SECONDS · on near METRES · on hear ["word"]
+ *  Events: on start · on touch · on timer SECONDS · on near METRES · on hear ["word"] · on bump ·
+ *          on blocked (a move didn't fit: the place is too dense)
  *  Actions: move X, Y, Z [in S] · turn X, Y, Z [in S] · grow K [in S] · home [in S] · pivot X, Y, Z ·
  *           spin X, Y, Z · color "#rrggbb" [, MATERIAL] · glow V [, MATERIAL] · opacity V [, MATERIAL] ·
  *           show · hide · say TEXT · timer S · wait S · stop      (MATERIAL: 1 for the first material, 2…)

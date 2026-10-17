@@ -2,7 +2,7 @@
 import type { Ctx } from "./context";
 import { askToBuild, canAskAgainIn } from "./moderation/ask";
 import type { Changer } from "./moderation";
-import { changers, rewind, rewindReach, undoPerson } from "./moderation";
+import { changers, rewind, rewindReach, showingChanges, toggleChanges, undoPerson } from "./moderation";
 import { kick, letBuild, lockdown, setEveryoneBuilds } from "./owner-tools";
 import { goPublic, keepOnline } from "./room-actions";
 import { amOwner, canBuild, canIBuild, ownerId, personOf } from "./rules";
@@ -30,6 +30,10 @@ export interface OwnerApi {
   changers(): Changer[];
   /** resolves with the number of objects put back */
   undoPerson(who: string): number;
+  /** select what they changed and bring it into view, or let it go if it is selected; how many were selected */
+  toggleChanges(who: string): number;
+  /** is exactly what they changed selected now? */
+  showingChanges(who: string): boolean;
   rewind(minutes: number): number;
   /** how many minutes back the scene can be rewound */
   rewindReach(): number;
@@ -55,6 +59,8 @@ export function ownerApi(ctx: Ctx): OwnerApi {
     keepOnline: (on) => keepOnline(ctx, on),
     changers: () => changers(ctx),
     undoPerson: (who) => undoPerson(ctx, who),
+    toggleChanges: (who) => toggleChanges(ctx, who),
+    showingChanges: (who) => showingChanges(ctx, who),
     rewind: (minutes) => rewind(ctx, minutes),
     rewindReach: () => rewindReach(ctx),
     askToBuild: () => askToBuild(ctx),
