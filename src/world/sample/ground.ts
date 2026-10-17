@@ -10,8 +10,9 @@ export const PLAZA_TOP = 0.3;
 
 function paving(): Mesh {
   const top = disc(PLAZA_R, PLAZA_TOP);
-  // the path to the pitch: the same paving, north out of the square
-  const path = box([3, 6, PLAZA_TOP], [0, PLAZA_R + 2, 0]);
+  // the path towards the pitch: the same paving, north out of the square
+  // it ends short of the net behind the south goal
+  const path = box([3, 2.6, PLAZA_TOP], [0, PLAZA_R + 0.8, 0]);
   return join([top, 1], [path, 1]);
 }
 
