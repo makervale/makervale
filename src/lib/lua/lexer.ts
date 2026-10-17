@@ -76,12 +76,9 @@ function nextToken(cur: Cursor): Tok {
   if (/[0-9]/.test(c) || (c === "." && /[0-9]/.test(cur.src[cur.i + 1] ?? ""))) return readNumber(cur);
   if (c === '"' || c === "'") return { t: "str", v: readQuoted(cur, c), line };
   if (c === "`") return { t: "interp", v: "`", parts: readInterp(cur), line };
-  if (c === "[" && (cur.src[cur.i + 1] === "[" || cur.src[cur.i + 1] === "=")) {
-    const s = longBracket(cur);
-    if (s !== null) return { t: "str", v: s, line };
-  }
   if (/[A-Za-z_]/.test(c)) return readName(cur);
-  return readOp(cur);
+  const long = c === "[" ? longBracket(cur) : null;
+  return long === null ? readOp(cur) : { t: "str", v: long, line };
 }
 
 function readName(cur: Cursor): Tok {

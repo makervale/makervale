@@ -56,7 +56,8 @@ const ARITH: Partial<Record<BinOp, (a: number, b: number, line: number) => numbe
   "*": (a, b) => a * b,
   "/": (a, b) => a / b,
   "//": (a, b) => Math.floor(a / b),
-  "%": (a, b, line) => (b === 0 ? fail("can't take the remainder of a division by zero", line) : a - Math.floor(a / b) * b),
+  "%": (a, b, line) =>
+    b === 0 ? fail("can't take the remainder of a division by zero", line) : a - Math.floor(a / b) * b,
   "^": (a, b) => a ** b,
 };
 
@@ -66,7 +67,8 @@ export function arith(op: BinOp, a: Value, b: Value, line: number): number {
 
 export function concat(a: Value, b: Value, line: number): string {
   for (const v of [a, b]) {
-    if (typeof v !== "string" && typeof v !== "number") fail(`can't join ${describe(v)} into text (use tostring)`, line);
+    if (typeof v !== "string" && typeof v !== "number")
+      fail(`can't join ${describe(v)} into text (use tostring)`, line);
   }
   const s = tostr(a) + tostr(b);
   if (s.length > MAX_STRING) fail("this text is too long", line);

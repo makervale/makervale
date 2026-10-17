@@ -22,6 +22,8 @@ export type UnOp = "-" | "not" | "#";
 
 export interface FuncBody {
   params: string[];
+  /** takes more arguments than it names, as "..." */
+  vararg: boolean;
   body: Block;
   name: string;
   line: number;
@@ -46,7 +48,8 @@ export type Expr =
   | { k: "un"; op: UnOp; e: Expr; line: number }
   | { k: "table"; items: TableItem[]; line: number }
   | { k: "interp"; parts: (string | Expr)[]; line: number }
-  | { k: "paren"; e: Expr };
+  | { k: "paren"; e: Expr }
+  | { k: "vararg"; line: number };
 
 export type CallExpr = Extract<Expr, { k: "call" } | { k: "method" }>;
 /** what can stand left of "=" */

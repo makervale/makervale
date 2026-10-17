@@ -42,12 +42,13 @@ export type Value = undefined | boolean | number | string | LuaTable | Closure |
 /** the local variables of one block; a closure keeps its scope (and the ones around it) alive */
 export class Scope {
   readonly vars = new Map<string, Value>();
+  /** in the scope of a function(...): what "..." stands for */
+  varargs: Value[] | null = null;
   constructor(readonly parent: Scope | null) {}
 
   /** the scope that has this name, if any */
   find(name: string): Scope | null {
-    for (let s: Scope | null = this; s; s = s.parent) if (s.vars.has(name)) return s;
-    return null;
+    return this.vars.has(name) ? this : (this.parent?.find(name) ?? null);
   }
 }
 
@@ -55,6 +56,8 @@ let tables = 0;
 
 export class LuaTable {
   readonly id = ++tables;
+  /** setmetatable's: __index, __newindex, __call and __tostring are what it may hold */
+  meta: LuaTable | null = null;
   private readonly map = new Map<unknown, Value>();
   /** 1…border are all set: the length, kept as entries come and go */
   private border = 0;

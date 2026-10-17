@@ -35,7 +35,7 @@ const UNARY_PRIORITY = 12;
 export function expr(p: Parser, limit = 0): Expr {
   const t = p.toks.peek();
   let e: Expr;
-  if (t.v === "not" || t.v === "#" || (t.v === "-" && t.t === "op")) {
+  if ((t.t === "kw" && t.v === "not") || (t.t === "op" && (t.v === "#" || t.v === "-"))) {
     p.toks.next();
     e = { k: "un", op: t.v as UnOp, e: expr(p, UNARY_PRIORITY), line: t.line };
   } else e = simple(p);
@@ -67,7 +67,7 @@ function simple(p: Parser): Expr {
     p.toks.next();
     return { k: "fn", f: funcBody(p, "function", false) };
   }
-  if (t.v === "...") return fail('"..." isn\'t supported: give the function named parameters', t.line);
+  if (t.v === "...") return took(p, { k: "vararg", line: t.line });
   return p.toks.unexpected();
 }
 
@@ -155,15 +155,16 @@ function tableItem(p: Parser): TableItem {
 export function funcBody(p: Parser, name: string, method: boolean): FuncBody {
   const line = p.toks.expect("(").line;
   const params = method ? ["self"] : [];
+  let vararg = false;
   while (!p.toks.is(")")) {
-    if (p.toks.is("...")) fail('"..." isn\'t supported: give the function named parameters', p.toks.line);
+    if ((vararg = p.toks.accept("..."))) break;
     params.push(p.toks.name("a parameter name"));
     if (!p.toks.accept(",")) break;
   }
   p.toks.expect(")", "after the parameters");
   const body = p.block();
   p.toks.expect("end", `to close the function that starts on line ${line}`);
-  return { params, body, name, line };
+  return { params, vararg, body, name, line };
 }
 
 /** `Hello {name}!`: each {…} is parsed as an expression of its own */
