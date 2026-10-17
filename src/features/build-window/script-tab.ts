@@ -5,7 +5,8 @@ import { esc } from "@/ui/dom";
 import type { Build } from "./context";
 import { scriptStatus } from "./script-status";
 
-const PLACEHOLDER = "-- for example:\nfunction onTouch(player)\n  say(&quot;Hello, &quot; .. player)\n  turn(0, 0, 45, 0.5)\nend";
+const PLACEHOLDER =
+  "-- for example:\nfunction onTouch(player)\n  say(&quot;Hello, &quot; .. player)\n  turn(0, 0, 45, 0.5)\nend";
 const HELP = `<details class="sc-help"><summary>What can a script do?</summary><div>
       <p><b>It's Lua</b>, as in Roblox, with <code>+=</code>, <code>continue</code> and <code>\`text {value}\`</code>. A script changes only its own object; it talks to others with <code>send</code>.</p>
       <p><b>Events</b>: write a function with one of these names. <code>onStart()</code>, <code>onTouch(player)</code> (a click), <code>onNear(player)</code> / <code>onAway(player)</code> (within <code>setReach(m)</code>, 3 m to begin with), <code>onEnter(player)</code> / <code>onLeave(player)</code> (standing on or in it), <code>onHear(player, text)</code> (chat), <code>onBump(other)</code> (a ball hit it), <code>onBlocked()</code> (a move didn't fit: the space is too full), <code>onMessage(from, …)</code>.</p>

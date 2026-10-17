@@ -7,7 +7,15 @@ const MAX_TIMERS = 32;
 const MIN_EVERY_S = 0.1;
 const MAX_DELAY_S = 3600;
 
-export function addTimer(r: Running, fn: Value, delay: number, every: number, t: number, line: number): number {
+/** `when`: seconds until it first runs, and between runs after that (0: it runs once) */
+export function addTimer(
+  r: Running,
+  fn: Value,
+  when: { delay: number; every: number },
+  t: number,
+  line: number,
+): number {
+  const { delay, every } = when;
   if (r.timers.length >= MAX_TIMERS) throw new LuaError(`too many timers (at most ${MAX_TIMERS}): cancel some`, line);
   const id = r.nextTimer++;
   const gap = every > 0 ? Math.max(MIN_EVERY_S, Math.min(every, MAX_DELAY_S)) : 0;

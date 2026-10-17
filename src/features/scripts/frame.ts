@@ -39,7 +39,8 @@ function saveState(o: Obj, r: Running, env: FrameEnv): void {
     return env.fail(o.id, e instanceof LuaError ? e.message : String(e));
   }
   if (json === r.savedJSON) return;
-  if (json.length > MAX_STATE_JSON) return env.fail(o.id, `state is too big to keep (at most ${MAX_STATE_JSON} characters as text)`);
+  if (json.length > MAX_STATE_JSON)
+    return env.fail(o.id, `state is too big to keep (at most ${MAX_STATE_JSON} characters as text)`);
   r.savedJSON = json;
   env.saveState(o, { ...(o.scriptState ?? freshState(o, r.src)), state });
 }

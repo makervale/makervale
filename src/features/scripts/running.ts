@@ -66,7 +66,13 @@ export function savedStateFor(o: Obj, src: string): ScriptState | undefined {
   return o.scriptState && o.scriptState.src === sourceHash(src) ? o.scriptState : undefined;
 }
 
-export function newRunning(src: string, body: Block, globals: LuaTable, saved: ScriptState | undefined, t: number): Running {
+export function newRunning(
+  src: string,
+  body: Block,
+  globals: LuaTable,
+  saved: ScriptState | undefined,
+  t: number,
+): Running {
   return {
     src,
     body,

@@ -32,11 +32,19 @@ export function startScript(o: Obj, env: StartEnv): Running {
 
 const MAX_SENT_PER_S = 30;
 
+export interface Sending {
+  from: Obj;
+  r: Running;
+  t: number;
+  line: number;
+}
+
 /** send(name, …): every other script on an object with that name hears onMessage(from, …), each with its own copy */
-export function deliver(from: Obj, r: Running, t: number, line: number, receivers: [Running, ThreadEnv][], args: Value[]) {
+export function deliver({ from, r, t, line }: Sending, receivers: [Running, ThreadEnv][], args: Value[]): void {
   const second = Math.floor(t);
   if (r.sent.second !== second) r.sent = { second, count: 0 };
-  if (++r.sent.count > MAX_SENT_PER_S) throw new LuaError(`too many messages this second (at most ${MAX_SENT_PER_S})`, line);
+  if (++r.sent.count > MAX_SENT_PER_S)
+    throw new LuaError(`too many messages this second (at most ${MAX_SENT_PER_S})`, line);
   const plain = args.map((v) => toPlain(v, "a message", line));
   for (const [to, env] of receivers) fire(to, "onMessage", [from.name, ...plain.map(fromPlain)], env);
 }

@@ -59,12 +59,43 @@ export function drawBubble(text: string, kind: BubbleKind): THREE.Sprite {
   return toSprite(canvas);
 }
 
-function toSprite(canvas: HTMLCanvasElement): THREE.Sprite {
+const LABEL = { fill: "rgba(22,26,34,.82)", stroke: "rgba(255,255,255,.35)", text: "#ffffff" };
+const LABEL_W_M = 2.4;
+
+/** a script's label: a plain sign, its lines as written (and wrapped when long), sitting on its position */
+export function drawLabel(text: string): THREE.Sprite {
+  const canvas = document.createElement("canvas");
+  const g = canvas.getContext("2d")!;
+  g.font = FONT;
+  const lines = text.split("\n").flatMap((l) => wrapText(l, CANVAS_W - PAD * 2, (s) => g.measureText(s).width));
+  const w = Math.min(CANVAS_W, Math.max(...lines.map((l) => g.measureText(l).width)) + PAD * 2);
+  canvas.width = CANVAS_W;
+  canvas.height = Math.ceil(lines.length * LINE_H + PAD * 1.4);
+  const x0 = (CANVAS_W - w) / 2;
+  g.font = FONT;
+  g.fillStyle = LABEL.fill;
+  g.strokeStyle = LABEL.stroke;
+  g.lineWidth = 3;
+  g.beginPath();
+  g.roundRect(x0, 0, w, canvas.height, RADIUS);
+  g.fill();
+  g.stroke();
+  g.fillStyle = LABEL.text;
+  g.textAlign = "center";
+  g.textBaseline = "middle";
+  lines.forEach((l, i) => g.fillText(l, CANVAS_W / 2, PAD * 0.7 + LINE_H * (i + 0.5)));
+  const sprite = toSprite(canvas, LABEL_W_M);
+  // a sign, not a word said: things in front of it hide it
+  sprite.material.depthTest = true;
+  return sprite;
+}
+
+function toSprite(canvas: HTMLCanvasElement, widthM = WORLD_WIDTH_M): THREE.Sprite {
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   const material = new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false, depthTest: false });
   const sprite = new THREE.Sprite(material);
-  const k = WORLD_WIDTH_M / CANVAS_W;
+  const k = widthM / CANVAS_W;
   sprite.scale.set(CANVAS_W * k, canvas.height * k, 1);
   sprite.center.set(0.5, 0);
   sprite.renderOrder = 10;

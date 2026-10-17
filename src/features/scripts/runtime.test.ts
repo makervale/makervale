@@ -91,7 +91,11 @@ describe("script runtime", () => {
     s.runtime.touch(s.obj().id, "Bob");
     s.run(1);
     expect(s.obj().scriptState?.state).toEqual({ n: 6 });
-    s.commands.act("Edit script", [s.obj().id], () => (s.obj().script = "function onTouch() state.n = (state.n or 5) + 2 end"));
+    s.commands.act(
+      "Edit script",
+      [s.obj().id],
+      () => (s.obj().script = "function onTouch() state.n = (state.n or 5) + 2 end"),
+    );
     s.runtime.touch(s.obj().id, "Bob");
     s.run(1);
     expect(s.obj().scriptState?.state).toEqual({ n: 7 });
@@ -218,9 +222,12 @@ describe("script runtime", () => {
 
   it("knows who steps on or into the object, and who leaves", () => {
     const where = { pos: [5, 0, 0] as Vec3 };
-    const s = setup('function onEnter(p) print("in " .. p) label(p .. " is here") end\nfunction onLeave(p) print("out " .. p) label() end', {
-      avatars: () => [{ name: "Ann", pos: where.pos }],
-    });
+    const s = setup(
+      'function onEnter(p) print("in " .. p) label(p .. " is here") end\nfunction onLeave(p) print("out " .. p) label() end',
+      {
+        avatars: () => [{ name: "Ann", pos: where.pos }],
+      },
+    );
     s.run(0.2);
     where.pos = [0.2, 0.5, 1.6];
     s.run(0.2);
@@ -234,7 +241,8 @@ describe("script runtime", () => {
   it("objects talk with send and onMessage, each getting its own copy", () => {
     const s = setup('function onTouch(p) send("Bell", "ring", p, {n = 1}) end');
     const bell = newObj(s.store.world, genBox(1), [3, 0, 1], [1, 1, 1], { name: "Bell" });
-    bell.script = 'function onMessage(from, what, p, t) t.n += 1 say(from .. " " .. what .. " " .. p .. " " .. t.n) end';
+    bell.script =
+      'function onMessage(from, what, p, t) t.n += 1 say(from .. " " .. what .. " " .. p .. " " .. t.n) end';
     s.store.world.objects.push(bell);
     s.runtime.resync();
     s.runtime.touch(s.obj().id, "Ann");
@@ -252,7 +260,10 @@ describe("script runtime", () => {
 
   it("away from the authority, forwards touches and runs nothing", () => {
     const forwarded: string[] = [];
-    const s = setup("function onTouch() hide() end", { isAuthority: () => false, onForwardTouch: (id) => forwarded.push(id) });
+    const s = setup("function onTouch() hide() end", {
+      isAuthority: () => false,
+      onForwardTouch: (id) => forwarded.push(id),
+    });
     s.runtime.resync();
     s.bus.emit("object:touched", { id: s.obj().id });
     s.run(0.1);
@@ -316,7 +327,9 @@ describe("script runtime", () => {
   });
 
   it("a greedy script rests once it has spent its gas for the second", () => {
-    const s = setup("function onStart()\n while true do\n  for i = 1, 20000 do state.n = (state.n or 0) + 1 end\n  wait(0)\n end\nend");
+    const s = setup(
+      "function onStart()\n while true do\n  for i = 1, 20000 do state.n = (state.n or 0) + 1 end\n  wait(0)\n end\nend",
+    );
     s.run(0.9);
     expect(s.runtime.gas.tiredScripts()).toContain(s.obj().id);
     const n = s.runtime.running.get(s.obj().id)!.globals.get("state");

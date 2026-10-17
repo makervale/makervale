@@ -1,10 +1,14 @@
-/** The three.js side of the app, put together: scene, camera, object views, highlights, picking, sky, bubbles. */
+/**
+ * The three.js side of the app, put together: scene, camera, object views, highlights, picking, sky, bubbles and
+ * labels.
+ */
 import * as THREE from "three";
 import type { Bus } from "@/app/bus";
 import type { Store } from "@/app/store";
 import type { Mesh } from "@/lib/mesh/mesh";
 import type { EditMode } from "@/lib/mesh/selection";
 import { Bubbles } from "./bubbles/bubbles";
+import { Labels } from "./bubbles/labels";
 import { CameraController } from "./camera/controller";
 import { Framing } from "./camera/framing";
 import { installBvh } from "./geometry";
@@ -47,6 +51,7 @@ export class Renderer {
   readonly preselect: Preselection;
   readonly sky: Sky;
   readonly bubbles: Bubbles;
+  private readonly labels: Labels;
 
   constructor(private readonly deps: RendererDeps) {
     installBvh();
@@ -64,6 +69,7 @@ export class Renderer {
     this.preselect = new Preselection(this.parts.scene, this.views, this.theme);
     this.sky = new Sky(this.parts, setSkyColors);
     this.bubbles = new Bubbles(this.parts.scene);
+    this.labels = new Labels(this.parts.scene, store);
     this.listen();
     new ResizeObserver(() => this.resize()).observe(deps.stage);
   }
@@ -96,6 +102,7 @@ export class Renderer {
     this.views.tickSpin();
     this.lod.update(this.views.views, this.parts.camera, this.deps.stage.clientHeight || 600, dt);
     this.bubbles.update();
+    this.labels.update(this.parts.camera);
   }
 
   /** the world, then the gizmos on top of it */

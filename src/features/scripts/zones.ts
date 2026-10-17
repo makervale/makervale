@@ -28,11 +28,12 @@ function isInside(o: Obj, at: Vec3, margin: number): boolean {
 
 type Arrive = (handler: string, who: string) => void;
 
-function track(set: Set<string>, who: string, inNow: boolean, outNow: boolean, names: [string, string], on: Arrive) {
-  if (inNow && !set.has(who)) {
+/** `now`: is the person in, and are they clearly out (past the margin) */
+function track(set: Set<string>, who: string, now: [boolean, boolean], names: [string, string], on: Arrive) {
+  if (now[0] && !set.has(who)) {
     set.add(who);
     on(names[0], who);
-  } else if (outNow && set.delete(who)) on(names[1], who);
+  } else if (now[1] && set.delete(who)) on(names[1], who);
 }
 
 export function checkZones(o: Obj, r: Running, avatars: Avatar[], wants: (h: string) => boolean, on: Arrive): void {
@@ -40,8 +41,10 @@ export function checkZones(o: Obj, r: Running, avatars: Avatar[], wants: (h: str
   const inside = wants("onEnter") || wants("onLeave");
   if (!near && !inside) return;
   for (const a of avatars) {
-    if (near) track(r.near, a.name, gap(o, a.pos) <= r.reach, gap(o, a.pos) > r.reach + MARGIN_M, ["onNear", "onAway"], on);
-    if (inside) track(r.inside, a.name, isInside(o, a.pos, 0), !isInside(o, a.pos, MARGIN_M), ["onEnter", "onLeave"], on);
+    const d = gap(o, a.pos);
+    if (near) track(r.near, a.name, [d <= r.reach, d > r.reach + MARGIN_M], ["onNear", "onAway"], on);
+    if (inside)
+      track(r.inside, a.name, [isInside(o, a.pos, 0), !isInside(o, a.pos, MARGIN_M)], ["onEnter", "onLeave"], on);
   }
   // people who left the room leave the object too
   const here = new Set(avatars.map((a) => a.name));

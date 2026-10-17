@@ -72,10 +72,12 @@ function needFn(v: Value, fn: string, line: number): Value {
 }
 
 function world(r: Running, env: HostEnv): Record<string, NativeFn> {
-  const timer = (name: string, repeat: boolean): NativeFn => (a, _c, line) => {
-    const s = argNum(a, 0, name, line);
-    return [addTimer(r, needFn(a[1], name, line), s, repeat ? s : 0, env.now(), line)];
-  };
+  const timer =
+    (name: string, repeat: boolean): NativeFn =>
+    (a, _c, line) => {
+      const s = argNum(a, 0, name, line);
+      return [addTimer(r, needFn(a[1], name, line), { delay: s, every: repeat ? s : 0 }, env.now(), line)];
+    };
   return {
     wait: function* (a: Value[], _c: Ctx, line: number): Gen<Value[]> {
       yield { wait: clamp(argNum(a, 0, "wait", line, 0), 0, MAX_WAIT_S) };

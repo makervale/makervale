@@ -9,22 +9,21 @@ import type { Value } from "@/lib/lua";
 import { STEP_BUDGET } from "@/lib/lua";
 import type { Obj, ScriptState } from "@/world/model";
 import type { ActEnv } from "./actions";
-import { act } from "./actions";
 import { actEnv } from "./act-env";
 import { ScriptConsole } from "./console";
 import type { ScriptDeps } from "./deps";
 import { performanceSeconds, standaloneHooks } from "./deps";
 import { ScriptErrors } from "./errors";
 import { ScriptNotes } from "./notes";
-import { ACTION_GAS, Gas } from "./gas";
+import { Gas } from "./gas";
 import type { FrameEnv } from "./frame";
 import { runFrame } from "./frame";
 import type { HostEnv } from "./host";
+import { hostEnv } from "./host-env";
 import type { Placement } from "./pose";
-import { placementOf } from "./pose";
 import type { Running } from "./running";
 import { errorText, freshState, savedStateFor } from "./running";
-import { deliver, startScript } from "./start";
+import { startScript } from "./start";
 import type { ThreadEnv } from "./threads";
 import { fire, runThreads } from "./threads";
 import { Tweens } from "./tweens";
@@ -47,7 +46,7 @@ export class ScriptRuntime implements ScriptBridge {
   readonly notes: ScriptNotes;
   readonly now: () => number;
   readonly random: () => number;
-  private readonly actEnv: ActEnv;
+  readonly actEnv: ActEnv;
 
   constructor(readonly deps: ScriptDeps) {
     this.now = deps.now ?? performanceSeconds;
@@ -58,7 +57,11 @@ export class ScriptRuntime implements ScriptBridge {
       const o = deps.store.byId(id);
       deps.commands.notice(`Script on "${o ? o.name : id}" stopped: ${message}`);
     });
-    this.tweens = new Tweens({ now: this.now, byId: (id) => deps.store.byId(id), frame: (o, p, f) => this.frame(o, p, f) });
+    this.tweens = new Tweens({
+      now: this.now,
+      byId: (id) => deps.store.byId(id),
+      frame: (o, p, f) => this.frame(o, p, f),
+    });
     this.actEnv = actEnv(this);
   }
 
@@ -136,16 +139,21 @@ export class ScriptRuntime implements ScriptBridge {
   /** start, restart or stop scripts to match the scene */
   resync(): void {
     const authority = this.hooks.isAuthority();
-    for (const [id, r] of [...this.running]) {
-      const o = this.deps.store.byId(id);
-      // no state left: the user edited the object, so the script starts over from where it is now
-      if (!authority || o?.script !== r.src || !o.scriptState) this.running.delete(id);
-    }
+    this.stopOutdated(authority);
     if (!authority) return;
     for (const o of this.deps.store.world.objects) {
       if (o.script && !this.running.has(o.id) && !this.errors.has(o.id)) this.start(o);
     }
     for (const id of this.errors.ids()) if (!this.deps.store.byId(id)?.script) this.errors.set(id, "");
+  }
+
+  /** scripts whose object is gone or whose text changed stop; all of them when someone else runs scripts */
+  private stopOutdated(authority: boolean): void {
+    for (const [id, r] of [...this.running]) {
+      const o = this.deps.store.byId(id);
+      // no state left: the user edited the object, so the script starts over from where it is now
+      if (!authority || o?.script !== r.src || !o.scriptState) this.running.delete(id);
+    }
   }
 
   /** the script text was edited: try again even if the last version had an error */
@@ -208,24 +216,7 @@ export class ScriptRuntime implements ScriptBridge {
   }
 
   private host(id: string, r: Running): HostEnv {
-    return {
-      now: this.now,
-      act: (name, a, dur, line) => {
-        const o = this.deps.store.byId(id);
-        if (!o) return 0;
-        this.gas.spend(id, ACTION_GAS);
-        return act({ o, r, a, dur, line, env: this.actEnv }, name);
-      },
-      avatars: () => this.hooks.avatars(),
-      where: () => placementOf(this.tweens.target(id) ?? this.deps.store.byId(id)!).pos,
-      send: (to, args, line) => {
-        const from = this.deps.store.byId(id)!;
-        const receivers = [...this.running]
-          .filter(([other]) => other !== id && this.deps.store.byId(other)?.name === to)
-          .map(([other, run]): [Running, ThreadEnv] => [run, this.threadEnv(other)]);
-        deliver(from, r, this.now(), line, receivers, args);
-      },
-    };
+    return hostEnv(this, id, r);
   }
 
   private frameEnv(): FrameEnv {

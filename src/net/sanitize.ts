@@ -152,9 +152,13 @@ function cleanState(x: unknown, budget = { n: MAX_STATE_NODES }, depth = 0): unk
   if (typeof x === "boolean") return x;
   if (typeof x === "string") return x.slice(0, 1000);
   if (Array.isArray(x)) return x.map((v) => cleanState(v, budget, depth + 1));
-  if (!isRecord(x)) return null;
+  return isRecord(x) ? cleanStateObject(x, budget, depth) : null;
+}
+
+function cleanStateObject(x: Record<string, unknown>, budget: { n: number }, depth: number): Record<string, unknown> {
   const out: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(x)) if (budget.n > 0 && k.length <= 100) out[k] = cleanState(v, budget, depth + 1);
+  for (const [k, v] of Object.entries(x))
+    if (budget.n > 0 && k.length <= 100) out[k] = cleanState(v, budget, depth + 1);
   return out;
 }
 
@@ -181,7 +185,11 @@ function cleanHome(h: any): ScriptState["home"] | null {
 function cleanLook(l: any): RestingLook | null {
   if (!l || !Array.isArray(l.materials) || !l.materials.length) return null;
   const spin = cleanVec3(l.spin, -MAX_SPIN_DEG_S, MAX_SPIN_DEG_S) ?? undefined;
-  const look: RestingLook = { materials: l.materials.slice(0, MAX_MATS).map(material), hidden: l.hidden === true, spin };
+  const look: RestingLook = {
+    materials: l.materials.slice(0, MAX_MATS).map(material),
+    hidden: l.hidden === true,
+    spin,
+  };
   const text = label(l.label);
   if (text) look.label = text;
   return look;
