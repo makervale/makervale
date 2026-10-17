@@ -12,7 +12,7 @@ const worker = await build({
 const res = await build({
   define: { __BUILD__: JSON.stringify(stamp), __LOD_WORKER__: JSON.stringify(worker.outputFiles[0].text) },
   entryPoints: ['src/main.ts'], bundle: true, format: 'esm', target: 'es2020', write: false, minify: true,
-  legalComments: 'none', alias: { '@': './src' },
+  legalComments: 'none', alias: { '@': './src' }, loader: { '.lua': 'text' },
 });
 const js = res.outputFiles[0].text.replace(/<\/script/gi, '<\\/script');
 import { readdirSync } from 'node:fs';

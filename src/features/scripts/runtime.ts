@@ -195,6 +195,8 @@ export class ScriptRuntime implements ScriptBridge {
   }
 
   private fail(id: string, message: string): void {
+    // the same error again (a state that can't be kept, every half second): said once
+    if (this.errors.get(id) === message) return;
     this.errors.set(id, message);
     this.console.add(id, "error: " + message);
   }

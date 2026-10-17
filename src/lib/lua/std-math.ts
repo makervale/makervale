@@ -21,7 +21,7 @@ function random(a: Value[], c: Ctx, line: number): Value[] {
 function minmax(name: string, pick: (a: number, b: number) => number): NativeFn {
   return (a, _c, l) => {
     if (!a.length) fail(`math.${name} needs at least one number`, l);
-    return [a.map((_, i) => argNum(a, i, "math." + name, l)).reduce(pick)];
+    return [a.map((_, i) => argNum(a, i, "math." + name, l)).reduce((x, y) => pick(x, y))];
   };
 }
 

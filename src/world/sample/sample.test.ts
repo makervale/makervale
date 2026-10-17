@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { signedVolume } from "@/lib/mesh/mesh";
-import { parse } from "@/lib/script";
+import { parse } from "@/lib/lua";
 import { inspect } from "@/lib/mesh/validate";
 import { sampleWorld } from "./index";
 
@@ -28,14 +28,14 @@ describe("showcase scene", () => {
     expect(bad).toEqual([]);
   });
 
-  it("has working scripts on the interactive pieces", () => {
-    const scripted = w.objects.filter((o) => o.script).map((o) => o.name);
-    expect(scripted).toEqual([
-      ...["Finial", "Geode", "Fountain basin", "Bloom", "Twist", "Lantern", "Lantern", "Lantern", "Lantern"],
-      ...["Gate", "Lift", "Door"],
-      ...["North goal area", "South goal area", "Ball"],
-      ...[1, 2, 3, 4, 5, 6, 7, 8].map((i) => "Chime " + i),
-    ]);
+  it("has a script on every game piece, and every script parses", () => {
+    const scripted = new Set(w.objects.filter((o) => o.script).map((o) => o.name));
+    for (const name of ["Guide", "Hall of Fame", "Start pad", "Finish", "Simon", "Bell 1", "Bell 6", "Treasure chest"]) {
+      expect(scripted, name).toContain(name);
+    }
+    for (const name of ["Chest lid", "Gem 1", "Gem 5", "Ball", "Scoreboard", "North goal area", "South goal area", "Lantern"]) {
+      expect(scripted, name).toContain(name);
+    }
     for (const o of w.objects) if (o.script) expect(() => parse(o.script!), o.name).not.toThrow();
   });
 
@@ -43,11 +43,12 @@ describe("showcase scene", () => {
     const ball = w.objects.find((o) => o.name === "Ball")!;
     expect(ball.body).toEqual({ shape: "ball", bounce: 0.6 });
     expect(ball.pos[2]).toBeGreaterThan(Math.max(...ball.size) / 2 - 0.01);
+    expect(ball.pos[2]).toBeLessThan(Math.max(...ball.size) / 2 + 0.05);
   });
 
-  it("numbers objects and groups from one counter, as the old scene did", () => {
+  it("numbers objects and groups from one counter", () => {
     expect(w.objects[0].id).toBe("o1");
-    expect(w.objects[1].group).toBe("g2");
+    expect(w.objects.some((o) => o.group)).toBe(true);
     expect(new Set(w.objects.map((o) => o.id)).size).toBe(w.objects.length);
     expect(w.seq).toBeGreaterThan(w.objects.length);
   });

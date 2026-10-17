@@ -29,21 +29,6 @@ const GOAL_TURF: Mat = { name: "Turf", color: "#5fa04a", roughness: 0.95 };
 /** the ball (radius 0.22) is wholly over the line once its centre is this far behind it */
 const BALL_OVER_LINE = 0.25;
 
-const areaScript = (
-  team: string,
-) => `// The ground inside the goal: the ball landing here, over the line, is a goal for ${team}.
-var goals = 0
-var busy = false
-on bump {
-  if who == "Ball" and not busy {
-    busy = true
-    goals = goals + 1
-    say "GOAL for ${team}! That's " + goals + "."
-    wait 2
-    busy = false
-  }
-}
-`;
 /** the turn that points +Z along `d` (a unit vector) */
 function towards(d: Vec3): Quat {
   if (d[2] < -0.9999) return [1, 0, 0, 0];
@@ -132,10 +117,10 @@ function goalArea(out: number): Mesh {
   return transformMesh(G.genBox(1), composeMatrix([0, y, 0.005], [0, 0, 0, 1], [w * 2, Math.abs(to - from), 0.01]));
 }
 
-/** a goal on the end line at `at`, opening towards play; the ball landing inside scores for `team` */
-export function addGoal(b: SceneBuilder, at: Vec3, out: 1 | -1, team: string, cords: Mat): void {
+/** a goal on the end line at `at`, opening towards play; the ground inside it runs `script` */
+export function addGoal(b: SceneBuilder, at: Vec3, out: 1 | -1, script: string, cords: Mat): void {
   const group = b.group();
   const name = out > 0 ? "North goal" : "South goal";
   b.place(frame(out), at, [GOAL_PAINT, cords], name, group);
-  b.place(goalArea(out), at, [GOAL_TURF], name + " area", group).script = areaScript(team);
+  b.place(goalArea(out), at, [GOAL_TURF], name + " area", group).script = script;
 }

@@ -65,9 +65,8 @@ with sync_playwright() as p:
     ra, rb = A.evaluate(f"() => {P}.scripts.runningCount"), B.evaluate(f"() => {P}.scripts.runningCount")
     check("exactly one browser runs scripts", (ra == 0) != (rb == 0), f"A {ra} B {rb}")
 
-    q0 = B.evaluate(f"() => {obj('Door')}.quat")
-    A.evaluate(f"() => {P}.bus.emit('object:touched', {{ id: {obj('Door')}.id }})")
-    check("A's touch swings B's door", until(B, f"() => JSON.stringify({obj('Door')}.quat) !== JSON.stringify({json.dumps(q0)})"))
+    A.evaluate(f"() => {P}.bus.emit('object:touched', {{ id: {obj('Simon')}.id }})")
+    check("A's touch starts Simon, and B sees its sign change", until(B, f"() => ({obj('Simon')}.label || '').includes('level 1')"))
 
     e0 = A.evaluate(f"() => JSON.stringify({obj('Lantern')}.materials)")
     lit = f"() => JSON.stringify({obj('Lantern')}.materials) !== {json.dumps(e0)}"
@@ -98,20 +97,20 @@ with sync_playwright() as p:
     yo = other.evaluate(f"() => {P}.store.byId('{ball}').pos[1]")
     check("…and both agree where it stopped", abs(ya - yo) < 0.05, f"{ya:.2f} vs {yo:.2f}")
 
-    # music: a chime touched on one screen is heard on both
+    # music: a bell touched on one screen is heard on both
     for pg in (A, B):
         pg.evaluate(f"() => {{ window.__notes = []; {P}.bus.on('sound:play', (e) => window.__notes.push(e.note)); }}")
-    B.evaluate(f"() => {P}.bus.emit('object:touched', {{ id: {obj('Chime 5')}.id }})")
+    B.evaluate(f"() => {P}.bus.emit('object:touched', {{ id: {obj('Bell 3')}.id }})")
     until(A, "() => window.__notes.length > 0"); until(B, "() => window.__notes.length > 0")
     na, nb = A.evaluate("() => window.__notes"), B.evaluate("() => window.__notes")
-    check("a chime is heard by everyone", na == [7] and nb == [7], f"A {na} B {nb}")
+    check("a bell is heard by everyone", 4 in na and 4 in nb, f"A {na} B {nb}")
 
     B.evaluate(f"() => {P}.session.say('hello from B')")
     check("chat reaches A", until(A, f"() => {P}.session.net.chat.some(l => l.text === 'hello from B')"))
 
-    crate = B.evaluate(f"() => {{ const P = {P}; const o = {obj('Crate')}; P.commands.selectObject(o, false); P.useTool('delete'); return o.id; }}")
+    bench = B.evaluate(f"() => {{ const P = {P}; const o = {obj('Bench')}; P.commands.selectObject(o, false); P.useTool('delete'); return o.id; }}")
     try:
-        A.wait_for_function(f"() => !{P}.store.byId('{crate}')", timeout=10000)
+        A.wait_for_function(f"() => !{P}.store.byId('{bench}')", timeout=10000)
         gone = True
     except Exception:
         gone = False

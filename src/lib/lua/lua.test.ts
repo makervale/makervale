@@ -54,6 +54,12 @@ describe("Lua", () => {
     ]);
   });
 
+  it("has math: min and max of several, floor, clamp, random in a range", () => {
+    expect(run("print(math.min(3, 1, 2), math.max(4, 9), math.floor(-2.5), math.clamp(7, 0, 5), math.random(4, 4))")).toEqual([
+      "1\t9\t-3\t5\t4",
+    ]);
+  });
+
   it("joins and slices text, with methods, format and `interpolation`", () => {
     const src = `
       local s = "Hello"

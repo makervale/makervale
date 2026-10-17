@@ -120,7 +120,7 @@ with sync_playwright() as p:
     pg.reload(); pg.wait_for_function(f"{P} && {P}.store.world.objects.length > 0", timeout=60000)
     check("autosave keeps the edit after reload", pg.evaluate(f"() => !{P}.store.byId('{bench}')"))
     # the playground: the trampoline throws you up, walking into the ball kicks it
-    pg.evaluate(f"() => {P}.avatar.teleportTo({{ x: 6.1, y: 3.4, z: 1.5 }})")
+    pg.evaluate(f"() => {P}.avatar.teleportTo({{ x: 4.5, y: 11, z: 1.5 }})")
     top = 0
     for _ in range(12):
         pg.wait_for_timeout(500)
@@ -128,7 +128,7 @@ with sync_playwright() as p:
     check("the trampoline throws you up", top > 3, f"{top:.1f} m")
     ball = pg.evaluate(f"() => {obj('Ball')}.id")
     y0 = pg.evaluate(f"() => {P}.store.byId('{ball}').pos[1]")
-    pg.evaluate(f"() => {{ const a = {P}.avatar; a.teleportTo({{ x: 0, y: 25.6, z: 0.1 }}); a.state.yaw = 0; }}")
+    pg.evaluate(f"() => {{ const a = {P}.avatar; a.teleportTo({{ x: 0, y: 29.6, z: 0.1 }}); a.state.yaw = 0; }}")
     pg.wait_for_timeout(800)
     pg.click("#view", position={"x": 600, "y": 120})
     # walk until you touch it, then stop: the ball must roll on by itself, not only move while your foot is on it
@@ -140,16 +140,17 @@ with sync_playwright() as p:
     y1 = pg.evaluate(f"() => {P}.store.byId('{ball}').pos[1]")
     check("a touch knocks the ball on, and it rolls by itself", y1 - me > 1.5, f"ball {y0:.2f} -> {y1:.2f}, you at {me:.2f}")
 
-    # a script's own changes are not saved: the lift comes back down after a reload, and still works
-    lift = pg.evaluate(f"() => {obj('Lift')}.id")
-    z0 = pg.evaluate(f"() => {P}.store.byId('{lift}').pos[2]")
-    pg.evaluate(f"() => {P}.bus.emit('object:touched', {{ id: '{lift}' }})"); pg.wait_for_timeout(4000)
-    check("touching the lift raises it", pg.evaluate(f"() => {P}.store.byId('{lift}').pos[2]") > z0 + 1)
+    # a script's own changes are not saved: Simon's sign is back to its start after a reload, and the game still works
+    simon = pg.evaluate(f"() => {obj('Simon')}.id")
+    sign = f"() => {P}.store.byId('{simon}').label || ''"
+    pg.evaluate(f"() => {P}.bus.emit('object:touched', {{ id: '{simon}' }})"); pg.wait_for_timeout(2000)
+    check("touching Simon starts a game", "level 1" in pg.evaluate(sign))
     pg.wait_for_timeout(1000)
     pg.reload(); pg.wait_for_function(f"{P} && {P}.store.world.objects.length > 0", timeout=60000)
-    check("after a reload the lift is down again", abs(pg.evaluate(f"() => {P}.store.byId('{lift}').pos[2]") - z0) < 0.01)
-    pg.evaluate(f"() => {P}.bus.emit('object:touched', {{ id: '{lift}' }})"); pg.wait_for_timeout(4000)
-    check("…and its script still works", pg.evaluate(f"() => {P}.store.byId('{lift}').pos[2]") > z0 + 1)
+    pg.wait_for_timeout(1500)
+    check("after a reload Simon waits for a player again", "Click me to play" in pg.evaluate(sign))
+    pg.evaluate(f"() => {P}.bus.emit('object:touched', {{ id: '{simon}' }})"); pg.wait_for_timeout(2000)
+    check("…and its script still works", "level 1" in pg.evaluate(sign))
     for e in errors:
         print("PAGEERROR", e)
     print("FAILED:", failed if failed else "none")
