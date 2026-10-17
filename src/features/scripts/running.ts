@@ -1,50 +1,64 @@
-/** A compiled, running script: its program, globals, threads and the bits of state the runtime keeps per object. */
-import type { Ctx, Program, Val, Yield } from "@/lib/script";
-import { ScriptError, evalArg, initGlobals, parse } from "@/lib/script";
+/** A running script: its Lua globals, its threads and timers, and the bits of state the runtime keeps per object. */
+import type { Block, Ctx, Gen, LuaTable, Value } from "@/lib/lua";
+import { LuaError } from "@/lib/lua";
 import type { Vec3 } from "@/lib/vec";
 import type { Obj, RestingLook, ScriptState } from "@/world/model";
 
 export interface Thread {
-  gen: Generator<Yield, unknown, void>;
-  wake: number;
-  ev: string;
+  gen: Gen<Value[]>;
   ctx: Ctx;
+  /** seconds: when it goes on */
+  wake: number;
+  /** which handler or timer started it ("onTouch", "timer 3"), so the same one doesn't pile up */
+  what: string;
+}
+
+export interface Timer {
+  id: number;
+  fn: Value;
+  at: number;
+  /** seconds between runs; 0 runs once */
+  every: number;
 }
 
 export interface Running {
   src: string;
-  prog: Program;
-  ctx: Ctx;
+  body: Block;
+  globals: LuaTable;
   threads: Thread[];
-  timerEvery: number;
-  timerNext: number;
-  /** per `on near` handler: who is already inside */
-  near: Map<number, Set<string>>;
+  timers: Timer[];
+  nextTimer: number;
+  /** people near the object (onNear/onAway) and inside it (onEnter/onLeave) */
+  near: Set<string>;
+  inside: Set<string>;
+  /** metres from the object's surface that count as near */
+  reach: number;
   pivot: Vec3;
-  startedAt: number;
   lastSay: number;
   says: number;
   /** when the last note played (seconds) */
   lastNote: number;
+  sent: { second: number; count: number };
   savedJSON: string;
   saveAt: number;
+  measureAt: number;
 }
 
-const MIN_TIMER_S = 0.1;
-
-/** a short hash of the source: saved variables only come back for the same script */
+/** a short hash of the source: saved state only comes back for the same script */
 export function sourceHash(s: string): string {
   let h = 2166136261;
   for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
   return (h >>> 0).toString(36);
 }
 
-export const errorText = (e: unknown): string => (e instanceof ScriptError ? e.message : String(e));
+export const errorText = (e: unknown): string =>
+  e instanceof LuaError ? e.message : "the script stopped: " + (e instanceof Error ? e.message : String(e));
 
 export function freshState(o: Obj, src: string): ScriptState {
   const look: RestingLook = { materials: structuredClone(o.materials), hidden: o.hidden };
   if (o.spin) look.spin = [...o.spin];
-  return { src: sourceHash(src), vars: {}, home: { pos: [...o.pos], quat: [...o.quat], size: [...o.size], look } };
+  if (o.label) look.label = o.label;
+  return { src: sourceHash(src), state: null, home: { pos: [...o.pos], quat: [...o.quat], size: [...o.size], look } };
 }
 
 /** the object's saved state, if it belongs to this very script */
@@ -52,41 +66,24 @@ export function savedStateFor(o: Obj, src: string): ScriptState | undefined {
   return o.scriptState && o.scriptState.src === sourceHash(src) ? o.scriptState : undefined;
 }
 
-export interface Clock {
-  now(): number;
-  random(): number;
-}
-
-/** parse and initialise; throws a ScriptError (or any error) when the script can't start */
-export function compile(o: Obj, clock: Clock): Running {
-  const src = o.script ?? "";
-  const prog = parse(src);
-  const startedAt = clock.now();
-  const ctx: Ctx = { vars: new Map(), local: {}, rand: clock.random, time: () => clock.now() - startedAt, steps: 0 };
-  initGlobals(prog, ctx);
-  const saved = savedStateFor(o, src);
-  if (saved) restoreVars(ctx.vars, saved.vars);
-  const timerHandler = prog.handlers.find((h) => h.ev === "timer");
-  const timerEvery = saved?.timer ?? (timerHandler ? Math.max(MIN_TIMER_S, evalArg(timerHandler.arg, ctx, 1)) : 0);
+export function newRunning(src: string, body: Block, globals: LuaTable, saved: ScriptState | undefined, t: number): Running {
   return {
     src,
-    prog,
-    ctx,
+    body,
+    globals,
     threads: [],
-    timerEvery,
-    timerNext: startedAt + timerEvery,
-    near: new Map(),
+    timers: [],
+    nextTimer: 1,
+    near: new Set(),
+    inside: new Set(),
+    reach: 3,
     pivot: saved?.pivot ? [...saved.pivot] : [0, 0, 0],
-    startedAt,
     lastSay: 0,
     says: 0,
     lastNote: -1,
-    savedJSON: JSON.stringify(saved?.vars ?? {}),
+    sent: { second: -1, count: 0 },
+    savedJSON: JSON.stringify(saved?.state ?? null),
     saveAt: 0,
+    measureAt: t,
   };
-}
-
-/** only variables the script still declares come back */
-function restoreVars(vars: Map<string, Val>, saved: Record<string, Val>): void {
-  for (const [k, v] of Object.entries(saved)) if (vars.has(k)) vars.set(k, v);
 }

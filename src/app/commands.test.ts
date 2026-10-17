@@ -35,7 +35,7 @@ describe("Commands", () => {
 
   it("moving a scripted object by hand restarts its script from there", () => {
     const { commands, obj, current } = setup();
-    obj.scriptState = { src: "x", vars: { up: true }, home: { pos: [0, 0, 0], quat: [0, 0, 0, 1], size: [1, 1, 1] } };
+    obj.scriptState = { src: "x", state: { up: true }, home: { pos: [0, 0, 0], quat: [0, 0, 0, 1], size: [1, 1, 1] } };
     commands.act("Move", [obj.id], () => {
       current().pos = [4, 0, 0];
     });
@@ -44,7 +44,7 @@ describe("Commands", () => {
 
   it("a drag does the same when it ends, and a script's own change keeps the state", () => {
     const { commands, obj, current } = setup();
-    const state = { src: "x", vars: {}, home: { pos: [0, 0, 0], quat: [0, 0, 0, 1], size: [1, 1, 1] } };
+    const state = { src: "x", state: null, home: { pos: [0, 0, 0], quat: [0, 0, 0, 1], size: [1, 1, 1] } };
     obj.scriptState = structuredClone(state) as typeof obj.scriptState;
     commands.apply([obj.id], () => (current().pos = [0, 0, 2]));
     expect(current().scriptState).toBeDefined();

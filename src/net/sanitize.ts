@@ -12,7 +12,7 @@ const MAX_FACES = 300_000;
 const MAX_MATS = 32;
 const MAX_FACE_SIDES = 256;
 const MAX_SCRIPT = 10_000;
-const MAX_VARS = 200;
+const MAX_LABEL = 200;
 const COORD_LIMIT = 1e6;
 const MESH_LIMIT = 1e4;
 const MIN_SIZE = 1e-6;
@@ -142,32 +142,28 @@ export function sanitizeObj(o: any): Obj | null {
 
 /* ---------- scripts on objects ---------- */
 
-function scriptVars(raw: object): ScriptState["vars"] {
-  const vars: ScriptState["vars"] = {};
-  let n = 0;
-  for (const [k, x] of Object.entries(raw)) {
-    if (++n > MAX_VARS || !/^[A-Za-z_]\w{0,40}$/.test(k)) break;
-    if (typeof x === "number" && isFinite(x)) vars[k] = x;
-    else if (typeof x === "boolean") vars[k] = x;
-    else if (typeof x === "string") vars[k] = x.slice(0, 1000);
-  }
-  return vars;
+const MAX_STATE_NODES = 5000;
+const MAX_STATE_DEPTH = 16;
+
+/** a script's `state`: plain JSON, of limited size and depth; anything else is dropped */
+function cleanState(x: unknown, budget = { n: MAX_STATE_NODES }, depth = 0): unknown {
+  if (--budget.n < 0 || depth > MAX_STATE_DEPTH) return null;
+  if (typeof x === "number") return isFinite(x) ? x : null;
+  if (typeof x === "boolean") return x;
+  if (typeof x === "string") return x.slice(0, 1000);
+  if (Array.isArray(x)) return x.map((v) => cleanState(v, budget, depth + 1));
+  if (!isRecord(x)) return null;
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(x)) if (budget.n > 0 && k.length <= 100) out[k] = cleanState(v, budget, depth + 1);
+  return out;
 }
 
-/** saved rooms from before the rename carry `sstate` with `v`; peers send `scriptState` with `vars` */
 function scriptState(o: any): ScriptState | undefined {
-  const st = o.scriptState ?? o.sstate;
+  const st = o.scriptState;
   if (!st || typeof st !== "object" || typeof st.src !== "string" || st.src.length >= 20) return undefined;
-  const rawVars = st.vars ?? st.v;
   const home = cleanHome(st.home);
-  if (!isRecord(rawVars) || !home) return undefined;
-  return {
-    src: st.src,
-    vars: scriptVars(rawVars),
-    home,
-    timer: cleanNum(st.timer, 0, 3600) ?? undefined,
-    pivot: cleanVec3(st.pivot, -2, 2) ?? undefined,
-  };
+  if (!home) return undefined;
+  return { src: st.src, state: cleanState(st.state), home, pivot: cleanVec3(st.pivot, -2, 2) ?? undefined };
 }
 
 const isRecord = (x: unknown): x is Record<string, unknown> => !!x && typeof x === "object" && !Array.isArray(x);
@@ -185,10 +181,16 @@ function cleanHome(h: any): ScriptState["home"] | null {
 function cleanLook(l: any): RestingLook | null {
   if (!l || !Array.isArray(l.materials) || !l.materials.length) return null;
   const spin = cleanVec3(l.spin, -MAX_SPIN_DEG_S, MAX_SPIN_DEG_S) ?? undefined;
-  return { materials: l.materials.slice(0, MAX_MATS).map(material), hidden: l.hidden === true, spin };
+  const look: RestingLook = { materials: l.materials.slice(0, MAX_MATS).map(material), hidden: l.hidden === true, spin };
+  const text = label(l.label);
+  if (text) look.label = text;
+  return look;
 }
 
-/** script, spin, script state and physics, if present and sane */
+/** a script's label: a few lines of text */
+const label = (x: unknown): string => (typeof x === "string" ? stripControl(x, true).slice(0, MAX_LABEL).trim() : "");
+
+/** script, spin, label, script state and physics, if present and sane */
 function scripted(o: any): Partial<Obj> {
   const out: Partial<Obj> = {};
   if (typeof o.script === "string" && o.script.length <= MAX_SCRIPT) {
@@ -196,6 +198,8 @@ function scripted(o: any): Partial<Obj> {
   }
   const spin = cleanVec3(o.spin, -MAX_SPIN_DEG_S, MAX_SPIN_DEG_S);
   if (spin && spin.some((v) => v !== 0)) out.spin = spin;
+  const text = label(o.label);
+  if (text) out.label = text;
   const state = out.script ? scriptState(o) : undefined;
   if (state) out.scriptState = state;
   if (o.body?.shape === "ball") out.body = { shape: "ball", bounce: cleanNum(o.body.bounce, 0, 1) ?? 0.5 };

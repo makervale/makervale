@@ -1,6 +1,6 @@
 /**
  * The scene as it is saved: every scripted object as it was before its script changed it (the lift down, the door
- * shut, the lantern dark), and without the script's variables. A reload then starts every script fresh, and the
+ * shut, the lantern dark, no label it put up), and without the script's state. A reload then starts every script fresh, and the
  * object and its script agree again. Live rooms still send the scene as it is right now.
  */
 import type { Obj, World } from "./model";
@@ -16,6 +16,8 @@ export function resting(o: Obj): Obj {
   out.hidden = look.hidden;
   if (look.spin) out.spin = [...look.spin];
   else delete out.spin;
+  if (look.label) out.label = look.label;
+  else delete out.label;
   return out;
 }
 

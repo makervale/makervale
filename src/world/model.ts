@@ -23,13 +23,14 @@ export interface RestingLook {
   materials: Material[];
   hidden: boolean;
   spin?: Vec3;
+  label?: string;
 }
 
 export interface ScriptState {
   src: string;
-  vars: Record<string, number | string | boolean>;
+  /** the script's `state` table, as plain JSON */
+  state: unknown;
   home: { pos: Vec3; quat: Quat; size: Vec3; look?: RestingLook };
-  timer?: number;
   pivot?: Vec3;
 }
 
@@ -54,6 +55,8 @@ export interface Obj {
   script?: string;
   /** continuous visual rotation in degrees per second about local X, Y, Z */
   spin?: Vec3;
+  /** a line or two of text shown above the object (a script's label()) */
+  label?: string;
   scriptState?: ScriptState;
   body?: Body;
   /** a trampoline: standing on it throws you up at this speed, m/s */

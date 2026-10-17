@@ -49,15 +49,14 @@ const close = (a: number[], b: number[]) => a.forEach((v, i) => expect(v).toBeCl
 
 describe("script runtime", () => {
   it("knows which objects react to clicks", () => {
-    expect(touchable({ script: "on touch { say 1 }" } as Obj)).toBe(true);
-    expect(touchable({ script: "on start { say 1 }" } as Obj)).toBe(false);
+    expect(touchable({ script: "function onTouch(p) say(1) end" } as Obj)).toBe(true);
+    expect(touchable({ script: "onTouch = function() end" } as Obj)).toBe(true);
+    expect(touchable({ script: "function onStart() say(1) end" } as Obj)).toBe(false);
     expect(touchable(undefined)).toBe(false);
   });
 
   it("runs a door that turns about its hinge, and keeps the hinge in place", () => {
-    const s = setup(
-      "var open = false\non start { pivot -0.5, 0, 0 }\non touch {\n open = not open\n turn 0, 0, 90 in 1\n}",
-    );
+    const s = setup("pivot(-0.5, 0, 0)\nfunction onTouch(p)\n state.open = not state.open\n turn(0, 0, 90, 1)\nend");
     s.run(0.1);
     const hinge = (o: Obj): Vec3 => add(o.pos, rotate(mul3([-0.5, 0, 0], o.size), o.quat));
     const before = hinge(s.obj());
@@ -71,41 +70,40 @@ describe("script runtime", () => {
     expect(s.quiet()).toBeGreaterThan(0);
   });
 
-  it("keeps variables, home and pivot on the object, and brings them back after a restart", () => {
-    const s = setup("var clicks = 0\non start { pivot 0.5, 0, 0 }\non touch { clicks += 1 }");
+  it("keeps state, home and pivot on the object, and brings them back after a restart", () => {
+    const s = setup("pivot(0.5, 0, 0)\nfunction onTouch(p) state.clicks = (state.clicks or 0) + 1 state.last = p end");
     s.run(0.1);
     s.runtime.touch(s.obj().id, "Bob");
     s.runtime.touch(s.obj().id, "Bob");
     s.run(1);
-    expect(s.obj().scriptState?.vars).toEqual({ clicks: 2 });
+    expect(s.obj().scriptState?.state).toEqual({ clicks: 2, last: "Bob" });
     expect(s.obj().scriptState?.home.pos).toEqual([0, 0, 1]);
     expect(s.obj().scriptState?.pivot).toEqual([0.5, 0, 0]);
     s.runtime.reset();
     s.runtime.resync();
-    s.runtime.touch(s.obj().id, "Bob");
+    s.runtime.touch(s.obj().id, "Ann");
     s.run(1);
-    expect(s.obj().scriptState?.vars).toEqual({ clicks: 3 });
+    expect(s.obj().scriptState?.state).toEqual({ clicks: 3, last: "Ann" });
   });
 
-  it("forgets saved variables when the script changes", () => {
-    const s = setup("var n = 5\non touch { n += 1 }");
+  it("forgets saved state when the script changes", () => {
+    const s = setup("function onTouch() state.n = (state.n or 5) + 1 end");
     s.runtime.touch(s.obj().id, "Bob");
     s.run(1);
-    expect(s.obj().scriptState?.vars).toEqual({ n: 6 });
-    s.commands.act("Edit script", [s.obj().id], () => (s.obj().script = "var n = 5\non touch { n += 2 }"));
+    expect(s.obj().scriptState?.state).toEqual({ n: 6 });
+    s.commands.act("Edit script", [s.obj().id], () => (s.obj().script = "function onTouch() state.n = (state.n or 5) + 2 end"));
     s.runtime.touch(s.obj().id, "Bob");
     s.run(1);
-    expect(s.obj().scriptState?.vars).toEqual({ n: 7 });
+    expect(s.obj().scriptState?.state).toEqual({ n: 7 });
   });
 
   it("lifts and comes home by itself", () => {
     const s = setup(
-      'var busy = false\non touch {\n if busy { stop }\n busy = true\n say "Going up!"\n move 0, 0, 3 in 1\n wait 1\n home in 1\n busy = false\n}',
+      'local busy = false\nfunction onTouch()\n if busy then return end\n busy = true\n say("Going up!")\n move(0, 0, 3, 1)\n wait(1)\n home(1)\n busy = false\nend',
     );
     s.bus.emit("object:touched", { id: s.obj().id });
     s.run(0.5);
     expect(s.runtime.tweenTarget(s.obj().id)?.pos).toEqual([0, 0, 4]);
-    expect(s.runtime.settledTarget(s.obj().id)?.pos).toEqual([0, 0, 4]);
     s.run(1);
     close(s.obj().pos, [0, 0, 4]);
     s.run(2);
@@ -115,7 +113,7 @@ describe("script runtime", () => {
   });
 
   it("fast clicks on a grow-and-shrink script end at the starting size", () => {
-    const s = setup("on touch {\n  grow 1.2 in 0.25\n  grow 0.8333 in 0.35\n}");
+    const s = setup("function onTouch()\n  grow(1.2, 0.25)\n  grow(0.8333, 0.35)\nend");
     for (let k = 0; k < 30; k++) {
       s.bus.emit("object:touched", { id: s.obj().id });
       s.run(0.05);
@@ -128,7 +126,7 @@ describe("script runtime", () => {
   });
 
   it("a turn while another is still playing turns from where the first one ends", () => {
-    const s = setup("on touch {\n  turn 0, 0, 90 in 1\n}");
+    const s = setup("function onTouch() turn(0, 0, 90, 1) end");
     s.bus.emit("object:touched", { id: s.obj().id });
     s.run(0.3);
     s.bus.emit("object:touched", { id: s.obj().id });
@@ -137,7 +135,7 @@ describe("script runtime", () => {
   });
 
   it("hears a bump with the name of what struck it, and pushes physical objects", () => {
-    const s = setup('on bump {\n  say "ouch, " + who\n  push 0, 0, 5\n}');
+    const s = setup('function onBump(other)\n  say("ouch, " .. other)\n  push(0, 0, 5)\nend');
     const pushes: number[][] = [];
     s.bus.on("physics:push", ({ vel }) => pushes.push(vel));
     s.bus.emit("object:bumped", { id: s.obj().id, by: "ground", speed: 3 });
@@ -147,7 +145,7 @@ describe("script runtime", () => {
   });
 
   it("kicks its object away from whoever touched it", () => {
-    const s = setup("on touch {\n  kick who, 6\n}", { avatars: () => [{ name: "Ann", pos: [0, -2, 0] }] });
+    const s = setup("function onTouch(p) kick(p, 6) end", { avatars: () => [{ name: "Ann", pos: [0, -2, 0] }] });
     const pushes: number[][] = [];
     s.bus.on("physics:push", ({ vel }) => pushes.push(vel));
     s.bus.emit("object:touched", { id: s.obj().id });
@@ -160,15 +158,15 @@ describe("script runtime", () => {
   });
 
   it("keeps objects within 100 m of home and sizes sane", () => {
-    const s = setup("on touch { move 500, 0, 0\n grow 1000 }");
+    const s = setup("function onTouch() move(500, 0, 0) grow(1000) end");
     s.runtime.touch(s.obj().id, "x");
     s.run(0.1);
     close(s.obj().pos, [100, 0, 1]);
     expect(Math.max(...s.obj().size)).toBeLessThanOrEqual(200);
   });
 
-  it("colours one material or all, and reports a bad colour once", () => {
-    const s = setup('on touch { color "red"\n glow 1.5, 2\n color "nope" }');
+  it("colours one material or all, and reports a bad colour once, in the console too", () => {
+    const s = setup('function onTouch()\n color("red")\n glow(1.5, 2)\n color("nope")\nend');
     s.obj().materials.push({ ...s.obj().materials[0], name: "Second" });
     const changed: string[][] = [];
     s.runtime.connect({ ...standaloneHooks(), onChanged: (ids) => changed.push(ids) });
@@ -176,21 +174,21 @@ describe("script runtime", () => {
     s.run(0.1);
     expect(s.obj().materials.map((m) => m.color)).toEqual(["#e03c2f", "#e03c2f"]);
     expect(s.obj().materials.map((m) => m.emissive)).toEqual([0, 1.5]);
-    expect(s.runtime.error(s.obj().id)).toMatch(/line 3: "nope" is not a color/);
-    expect(s.notices).toEqual([
-      `Script on "Thing" stopped: line 3: "nope" is not a color (use "#rrggbb" or a name like red)`,
-    ]);
+    const message = 'line 4: "nope" is not a colour (use "#rrggbb" or a name like "red")';
+    expect(s.runtime.error(s.obj().id)).toBe(message);
+    expect(s.notices).toEqual([`Script on "Thing" stopped: ${message}`]);
+    expect(s.runtime.output(s.obj().id)).toEqual(["error: " + message]);
     expect(changed.length).toBeGreaterThanOrEqual(2);
   });
 
   it("reports syntax errors and tries again after an edit", () => {
-    const s = setup("on touch {\n explode\n}");
+    const s = setup("function onTouch()\n explode(\nend");
     let told = 0;
     s.bus.on("scripts:errors", () => told++);
     s.runtime.resync();
-    expect(s.runtime.error(s.obj().id)).toMatch(/line 2/);
+    expect(s.runtime.error(s.obj().id)).toMatch(/line 3/);
     expect(s.runtime.runningCount).toBe(0);
-    s.obj().script = "on touch { hide }";
+    s.obj().script = "function onTouch() hide() end";
     s.runtime.restart(s.obj().id);
     expect(s.runtime.error(s.obj().id)).toBe("");
     expect(s.runtime.runningCount).toBe(1);
@@ -200,23 +198,52 @@ describe("script runtime", () => {
     expect(s.obj().hidden).toBe(true);
   });
 
-  it("fires timers, near and hear", () => {
-    const s = setup('var n = 0\non timer 1 { n += 1 }\non near 2 { say "hi " + who }\non hear "open" { say heard }');
+  it("runs timers (every, after, cancel), near and hear, and prints to the console", () => {
+    const s = setup(
+      'n = 0\nlocal t = every(1, function() n += 1 end)\nafter(3.5, function() cancel(t) print("stopped at", n) end)\nfunction onNear(p) say("hi " .. p) end\nfunction onHear(p, text) if text:lower():find("open") then say(text) end end',
+    );
     s.runtime.connect({
       ...standaloneHooks(),
       onSay: (_o, t) => s.said.push(t),
       avatars: () => [{ name: "Ann", pos: [0, 0, 2] }],
     });
-    s.run(3.3);
-    expect(s.runtime["running"].get(s.obj().id)?.ctx.vars.get("n")).toBe(3);
+    s.run(5.3);
+    expect(s.runtime.running.get(s.obj().id)?.globals.get("n")).toBe(3);
+    expect(s.runtime.output(s.obj().id)).toEqual(["stopped at\t3"]);
     s.runtime.hear("please OPEN up", "Bob");
     s.runtime.hear("nothing", "Bob");
     s.run(0.1);
     expect(s.said).toEqual(["hi Ann", "please OPEN up"]);
   });
 
+  it("knows who steps on or into the object, and who leaves", () => {
+    const where = { pos: [5, 0, 0] as Vec3 };
+    const s = setup('function onEnter(p) print("in " .. p) label(p .. " is here") end\nfunction onLeave(p) print("out " .. p) label() end', {
+      avatars: () => [{ name: "Ann", pos: where.pos }],
+    });
+    s.run(0.2);
+    where.pos = [0.2, 0.5, 1.6];
+    s.run(0.2);
+    expect(s.obj().label).toBe("Ann is here");
+    where.pos = [3, 0, 0];
+    s.run(0.2);
+    expect(s.runtime.output(s.obj().id)).toEqual(["in Ann", "out Ann"]);
+    expect(s.obj().label).toBeUndefined();
+  });
+
+  it("objects talk with send and onMessage, each getting its own copy", () => {
+    const s = setup('function onTouch(p) send("Bell", "ring", p, {n = 1}) end');
+    const bell = newObj(s.store.world, genBox(1), [3, 0, 1], [1, 1, 1], { name: "Bell" });
+    bell.script = 'function onMessage(from, what, p, t) t.n += 1 say(from .. " " .. what .. " " .. p .. " " .. t.n) end';
+    s.store.world.objects.push(bell);
+    s.runtime.resync();
+    s.runtime.touch(s.obj().id, "Ann");
+    s.run(0.1);
+    expect(s.said).toEqual(["Thing ring Ann 2"]);
+  });
+
   it("spins and limits how much a script may say", () => {
-    const s = setup('on touch { spin 0, 0, 9000\n repeat 30 { say "x" } }');
+    const s = setup('function onTouch() spin(0, 0, 9000) for i = 1, 30 do say("x") end end');
     s.runtime.touch(s.obj().id, "x");
     s.run(0.1);
     expect(s.obj().spin).toEqual([0, 0, 720]);
@@ -225,7 +252,7 @@ describe("script runtime", () => {
 
   it("away from the authority, forwards touches and runs nothing", () => {
     const forwarded: string[] = [];
-    const s = setup("on touch { hide }", { isAuthority: () => false, onForwardTouch: (id) => forwarded.push(id) });
+    const s = setup("function onTouch() hide() end", { isAuthority: () => false, onForwardTouch: (id) => forwarded.push(id) });
     s.runtime.resync();
     s.bus.emit("object:touched", { id: s.obj().id });
     s.run(0.1);
@@ -245,19 +272,25 @@ describe("script runtime", () => {
   });
 
   it("gives a runaway loop a slice of every frame without freezing the others", () => {
-    const s = setup('var i = 0\non touch { while true { i += 1 } }\non hear { say "still here" }');
+    const s = setup('i = 0\nfunction onTouch() while true do i += 1 end end\nfunction onHear() say("still here") end');
     s.runtime.touch(s.obj().id, "x");
     s.run(0.5);
     s.runtime.hear("hello", "Bob");
     s.run(0.5);
-    const i = s.runtime["running"].get(s.obj().id)?.ctx.vars.get("i") as number;
-    expect(i).toBeGreaterThan(10000);
+    expect(s.runtime.running.get(s.obj().id)?.globals.get("i")).toBeGreaterThan(10000);
     expect(s.said).toEqual(["still here"]);
     expect(s.runtime.error(s.obj().id)).toBe("");
   });
 
+  it("stops a script that holds more and more", () => {
+    const s = setup("local all = {}\nwhile true do all[#all + 1] = {1, 2, 3} end");
+    s.run(20);
+    expect(s.runtime.runningCount).toBe(0);
+    expect(s.runtime.error(s.obj().id)).toMatch(/holds too much/);
+  });
+
   it("a move into a place that is too dense doesn't happen, and the script hears it", () => {
-    const s = setup('on touch { move 40, 0, 0 in 1 }\non blocked { say "no room" }');
+    const s = setup('function onTouch() move(40, 0, 0, 1) end\nfunction onBlocked() say("no room") end');
     const fan = {
       v: [
         [0, 0, 0],
@@ -283,13 +316,14 @@ describe("script runtime", () => {
   });
 
   it("a greedy script rests once it has spent its gas for the second", () => {
-    const s = setup("var n = 0\non start {\n while true {\n  repeat 20000 { n = n + 1 }\n  wait 0\n }\n}");
+    const s = setup("function onStart()\n while true do\n  for i = 1, 20000 do state.n = (state.n or 0) + 1 end\n  wait(0)\n end\nend");
     s.run(0.9);
     expect(s.runtime.gas.tiredScripts()).toContain(s.obj().id);
-    const n = s.obj().scriptState?.vars.n;
+    const n = s.runtime.running.get(s.obj().id)!.globals.get("state");
+    const count = (n as { get(k: string): unknown }).get("n");
     s.run(0.04);
     // resting: no more work this second
-    expect(s.obj().scriptState?.vars.n).toBe(n);
+    expect((n as { get(k: string): unknown }).get("n")).toBe(count);
     expect(s.runtime.note(s.obj().id)).toMatch(/Resting/);
   });
 });

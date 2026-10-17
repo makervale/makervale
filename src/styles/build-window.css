@@ -513,3 +513,16 @@
     border-right: 0;
   }
 }
+
+.sc-console {
+  margin: 6px 0 0;
+  max-height: 9em;
+  overflow: auto;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: var(--textbg);
+  color: #cfd3da;
+  font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+}

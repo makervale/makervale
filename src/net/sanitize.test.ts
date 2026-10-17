@@ -105,22 +105,23 @@ describe("objects", () => {
 describe("script state", () => {
   const home = { pos: [0, 0, 0], quat: [0, 0, 0, 1], size: [1, 1, 1] };
 
-  it("reads old saves that call it sstate with v", () => {
-    const o = sanitizeObj(obj({ script: "on touch", sstate: { src: "abc", v: { n: 3, ok: true }, home } }))!;
-    expect(o.scriptState).toEqual({ src: "abc", vars: { n: 3, ok: true }, home, timer: undefined, pivot: undefined });
-    expect((o as any).sstate).toBeUndefined();
-  });
-
-  it("reads scriptState with vars, stops at a bad variable name, clamps the timer", () => {
-    const vars = { a: 1, b: NaN, "bad name": 2, s: "x" };
-    const o = sanitizeObj(obj({ script: "x", scriptState: { src: "k", vars, home, timer: 99999 } }))!;
-    expect(o.scriptState!.vars).toEqual({ a: 1 });
-    expect(o.scriptState!.timer).toBe(3600);
+  it("keeps a script's state as plain JSON, within limits, and drops what isn't plain", () => {
+    const state = { scores: { Ann: 3 }, list: [1, "two", true], bad: NaN, deep: { a: { b: { c: 1 } } } };
+    const o = sanitizeObj(obj({ script: "x", scriptState: { src: "k", state, home } }))!;
+    expect(o.scriptState!.state).toEqual({ scores: { Ann: 3 }, list: [1, "two", true], bad: null, deep: { a: { b: { c: 1 } } } });
+    const huge = { list: Array.from({ length: 9000 }, (_, i) => i) };
+    const big = sanitizeObj(obj({ script: "x", scriptState: { src: "k", state: huge, home } }))!;
+    expect((big.scriptState!.state as { list: unknown[] }).list.filter((x) => x !== null).length).toBeLessThan(5000);
   });
 
   it("ignores state without a script or without a home", () => {
-    expect(sanitizeObj(obj({ sstate: { src: "a", v: {}, home } }))!.scriptState).toBeUndefined();
-    expect(sanitizeObj(obj({ script: "x", sstate: { src: "a", v: {} } }))!.scriptState).toBeUndefined();
+    expect(sanitizeObj(obj({ scriptState: { src: "a", state: {}, home } }))!.scriptState).toBeUndefined();
+    expect(sanitizeObj(obj({ script: "x", scriptState: { src: "a", state: {} } }))!.scriptState).toBeUndefined();
+  });
+
+  it("keeps a label of a few lines, without control characters", () => {
+    expect(sanitizeObj(obj({ label: "Red 2 : 1 Blue\nAnn scored\u0007" }))!.label).toBe("Red 2 : 1 Blue\nAnn scored");
+    expect(sanitizeObj(obj({ label: 42 }))!.label).toBeUndefined();
   });
 });
 

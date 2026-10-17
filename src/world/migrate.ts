@@ -59,13 +59,7 @@ function renameScriptState(o: Raw): Obj {
 
 function scriptStateOf(st: unknown): ScriptState | undefined {
   if (!isRecord(st) || typeof st.src !== "string" || !isRecord(st.home)) return undefined;
-  const vars = st.vars ?? st.v;
-  const state: ScriptState = {
-    src: st.src,
-    vars: (isRecord(vars) ? vars : {}) as ScriptState["vars"],
-    home: st.home as unknown as ScriptState["home"],
-  };
-  if (typeof st.timer === "number") state.timer = st.timer;
+  const state: ScriptState = { src: st.src, state: st.state ?? null, home: st.home as unknown as ScriptState["home"] };
   if (Array.isArray(st.pivot)) state.pivot = st.pivot as ScriptState["pivot"];
   return state;
 }

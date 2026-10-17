@@ -1,7 +1,7 @@
 /** What each script action does to its object. Each returns how many seconds it takes. */
 import type { Fx } from "@/net/scripts-bridge";
-import type { Val } from "@/lib/script";
-import { ScriptError, show } from "@/lib/script";
+import type { Value } from "@/lib/lua";
+import { LuaError, tostr } from "@/lib/lua";
 import type { Vec3 } from "@/lib/vec";
 import { add, clamp, length, normalize, scale, sub } from "@/lib/vec";
 import type { Material, Obj } from "@/world/model";
@@ -36,7 +36,7 @@ export interface ActEnv {
 export interface Act {
   o: Obj;
   r: Running;
-  a: Val[];
+  a: Value[];
   dur: number;
   line: number;
   env: ActEnv;
@@ -50,11 +50,10 @@ const MAX_SPIN_DEG_S = 720;
 const SAY_WINDOW_S = 10;
 const SAYS_PER_WINDOW = 20;
 const MAX_SAY = 300;
-const MIN_TIMER_S = 0.1;
 const MAX_PUSH_M_S = 25;
 
-const n = (v: Val | undefined): number => (typeof v === "number" ? v : 0);
-const vec = (a: Val[]): Vec3 => [n(a[0]), n(a[1]), n(a[2])];
+const n = (v: Value): number => (typeof v === "number" ? v : 0);
+const vec = (a: Value[]): Vec3 => [n(a[0]), n(a[1]), n(a[2])];
 
 function go(c: Act, pos: Vec3, quat: Fx["quat"], size: Vec3, pv?: number[]): number {
   const { o } = c;
@@ -112,7 +111,7 @@ function spin(c: Act): number {
 }
 
 /** change all materials, or just material number `slot` (1-based) */
-function materials(c: Act, slot: Val | undefined, f: (m: Material) => Material): number {
+function materials(c: Act, slot: Value, f: (m: Material) => Material): number {
   const k = typeof slot === "number" ? Math.floor(slot) - 1 : -1;
   c.env.change(c.o, (o) => {
     o.materials = o.materials.map((m, i) => (k < 0 || i === k ? f(m) : m));
@@ -122,7 +121,7 @@ function materials(c: Act, slot: Val | undefined, f: (m: Material) => Material):
 
 function color(c: Act): number {
   const hex = parseColor(String(c.a[0]));
-  if (!hex) throw new ScriptError(`"${show(c.a[0])}" is not a color (use "#rrggbb" or a name like red)`, c.line);
+  if (!hex) throw new LuaError(`"${tostr(c.a[0])}" is not a colour (use "#rrggbb" or a name like "red")`, c.line);
   return materials(c, c.a[1], (m) => ({ ...m, color: hex }));
 }
 
@@ -133,17 +132,8 @@ function say(c: Act): number {
   if (r.says >= SAYS_PER_WINDOW) return 0;
   r.says++;
   r.lastSay = t;
-  const text = show(c.a[0]).slice(0, MAX_SAY).trim();
+  const text = tostr(c.a[0]).slice(0, MAX_SAY).trim();
   if (text) c.env.say(c.o, text);
-  return 0;
-}
-
-function timer(c: Act): number {
-  const { r } = c;
-  const every = n(c.a[0]);
-  r.timerEvery = every <= 0 ? 0 : Math.max(MIN_TIMER_S, every);
-  r.timerNext = c.env.now() + r.timerEvery;
-  if (c.o.scriptState) c.o.scriptState.timer = r.timerEvery;
   return 0;
 }
 
@@ -187,6 +177,18 @@ function visibility(hidden: boolean) {
   };
 }
 
+const MAX_LABEL = 200;
+
+/** text over the object for everyone to see; nil or "" takes it away */
+function label(c: Act): number {
+  const text = c.a[0] === undefined ? "" : tostr(c.a[0]).slice(0, MAX_LABEL).trim();
+  c.env.change(c.o, (o) => {
+    if (text) o.label = text;
+    else delete o.label;
+  });
+  return 0;
+}
+
 const ACTIONS: Record<string, (c: Act) => number> = {
   move,
   turn,
@@ -200,7 +202,7 @@ const ACTIONS: Record<string, (c: Act) => number> = {
   show: visibility(false),
   hide: visibility(true),
   say,
-  timer,
+  label,
   play,
   kick,
   push: (c) => {

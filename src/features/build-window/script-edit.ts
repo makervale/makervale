@@ -1,9 +1,9 @@
 /** Script editing: live syntax check, apply (Ctrl+Enter), remove, templates, Tab indents, open from elsewhere. */
-import { TEMPLATES } from "@/lib/script";
+import { TEMPLATES } from "./script-templates";
 import { toast } from "@/ui/toast";
 import { showWindow } from "@/ui/window";
 import type { Build, Clicks, Field } from "./context";
-import { editor, scriptStatus, syntaxError } from "./script-status";
+import { editor, scriptConsole, scriptStatus, syntaxError } from "./script-status";
 
 const CHECK_AFTER_MS = 250;
 const INDENT = "  ";
@@ -55,6 +55,9 @@ export function wireScriptEditor(b: Build): void {
   });
   b.deps.bus.on("scripts:errors", () => {
     if (b.tab === "script" && b.scriptFor) scriptStatus(b, b.scriptFor);
+  });
+  b.deps.bus.on("scripts:output", ({ id }) => {
+    if (b.tab === "script" && b.scriptFor === id) scriptConsole(b, id);
   });
   b.deps.bus.on("script:open", ({ id }) => openScript(b, id));
 }

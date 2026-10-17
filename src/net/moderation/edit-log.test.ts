@@ -52,7 +52,7 @@ describe("undo one person's changes", () => {
     const changes: Change[] = [{ at: 1, who: "grief", id: "e", before: obj("e", 0), after: obj("e", 9) }];
     const scripted: Obj = {
       ...obj("e", 9),
-      scriptState: { src: "", vars: { lit: true }, home: { pos: [9, 0, 0], quat: [0, 0, 0, 1], size: [1, 1, 1] } },
+      scriptState: { src: "", state: { lit: true }, home: { pos: [9, 0, 0], quat: [0, 0, 0, 1], size: [1, 1, 1] } },
     };
     expect(undoPlan(changes, "grief", scene([scripted]))).toEqual(new Map([["e", obj("e", 0)]]));
   });

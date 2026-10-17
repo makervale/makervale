@@ -13,7 +13,7 @@ function lift() {
 describe("resting", () => {
   it("saves a scripted object where it was before the script moved it", () => {
     const { o } = lift();
-    o.scriptState = { src: "x", vars: { up: true }, home: { pos: [0, 0, 0], quat: [0, 0, 0, 1], size: [2, 2, 0.2] } };
+    o.scriptState = { src: "x", state: { up: true }, home: { pos: [0, 0, 0], quat: [0, 0, 0, 1], size: [2, 2, 0.2] } };
     o.pos = [0, 0, 3];
     const r = resting(o);
     expect(r.pos).toEqual([0, 0, 0]);
@@ -25,7 +25,7 @@ describe("resting", () => {
     const { o } = lift();
     const dark = defaultMaterial({ color: "#222222" });
     const home = { pos: o.pos, quat: o.quat, size: o.size, look: { materials: [dark], hidden: false } };
-    o.scriptState = { src: "x", vars: {}, home };
+    o.scriptState = { src: "x", state: null, home };
     o.materials = [defaultMaterial({ color: "#ffcc00", emissive: 1 })];
     o.spin = [0, 0, 90];
     const r = resting(o);
@@ -35,7 +35,7 @@ describe("resting", () => {
 
   it("leaves objects without scripts alone and doesn't touch the live scene", () => {
     const { w, o } = lift();
-    o.scriptState = { src: "x", vars: {}, home: { pos: [0, 0, 0], quat: [0, 0, 0, 1], size: [2, 2, 0.2] } };
+    o.scriptState = { src: "x", state: null, home: { pos: [0, 0, 0], quat: [0, 0, 0, 1], size: [2, 2, 0.2] } };
     o.pos = [0, 0, 3];
     const plain = newObj(w, genBox(1), [5, 0, 0], [1, 1, 1], { name: "Box" });
     w.objects.push(o, plain);

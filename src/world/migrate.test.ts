@@ -5,7 +5,7 @@ import { defaultMaterial, newObj } from "./model";
 import type { World } from "./model";
 
 describe("loading old saves", () => {
-  it("keeps current objects and renames the old script state", () => {
+  it("keeps current objects and the old script state's home under today's name", () => {
     const world: World = { seq: 5, objects: [] };
     const o = newObj(world, genBox(1), [1, 2, 3], [1, 1, 1], { name: "Door" });
     o.script = "var open = false";
@@ -21,12 +21,7 @@ describe("loading old saves", () => {
     const d = w.objects[0];
     expect(d.name).toBe("Door");
     expect(d.mesh.f.length).toBe(6);
-    expect(d.scriptState).toEqual({
-      src: "abc",
-      vars: { open: true },
-      home: { pos: [1, 2, 3], quat: [0, 0, 0, 1], size: [1, 1, 1] },
-      timer: 2,
-    });
+    expect(d.scriptState).toEqual({ src: "abc", state: null, home: { pos: [1, 2, 3], quat: [0, 0, 0, 1], size: [1, 1, 1] } });
     expect("sstate" in d).toBe(false);
   });
 

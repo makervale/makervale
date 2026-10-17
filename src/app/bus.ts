@@ -22,6 +22,8 @@ export interface Events {
   "room:changed": undefined;
   "chat:message": undefined;
   "scripts:errors": undefined;
+  /** this object's script printed something (or its output was cleared) */
+  "scripts:output": { id: string };
   "build:allowed": { allowed: boolean };
   "identity:changed": undefined;
   /** someone in my room asks me (the owner) to let them build */

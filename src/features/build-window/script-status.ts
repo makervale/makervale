@@ -2,7 +2,7 @@
  * The Script tab's status line: syntax error, "not applied yet", the runtime's error, what the script just ran
  * into (resting, blocked), or what it does.
  */
-import { parse } from "@/lib/script";
+import { parse } from "@/lib/lua";
 import type { Obj } from "@/world/model";
 import type { Build } from "./context";
 
@@ -44,10 +44,21 @@ export function scriptStatus(b: Build, id: string): void {
   const el = b.root.querySelector<HTMLElement>("#sc-status");
   const o = b.deps.store.byId(id);
   if (!el || !o) return;
+  scriptConsole(b, id);
   const line = statusLine(b, o);
   el.className = "sc-status " + line.kind;
   el.textContent = line.text;
   // a note fades once the script stops running into it
   clearTimeout(recheck);
   if (line.kind === "warn") recheck = setTimeout(() => scriptStatus(b, id), NOTE_RECHECK_MS);
+}
+
+/** what the script printed, and its errors, newest at the bottom */
+export function scriptConsole(b: Build, id: string): void {
+  const el = b.root.querySelector<HTMLElement>("#sc-console");
+  if (!el) return;
+  const lines = b.deps.scripts.scriptOutput(id);
+  el.hidden = !lines.length;
+  el.textContent = lines.join("\n");
+  el.scrollTop = el.scrollHeight;
 }

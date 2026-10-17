@@ -89,6 +89,7 @@ function mountBuilding(core: Core, renderer: Renderer, bodies: Bodies, manip: ma
   const scripts = {
     scriptError: (id: string) => bodies.runtime.error(id) || null,
     scriptNote: (id: string) => bodies.runtime.note(id),
+    scriptOutput: (id: string) => bodies.runtime.output(id),
     restartScript: (id: string) => bodies.runtime.restart(id),
     touchable,
   };
