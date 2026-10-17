@@ -22,6 +22,7 @@ import { createScene } from "./scene";
 import { Sky } from "./sky";
 import type { Theme } from "./theme";
 import { readTheme } from "./theme";
+import { Lod } from "./lod/lod";
 
 export interface RendererDeps {
   canvas: HTMLCanvasElement;
@@ -38,6 +39,7 @@ export class Renderer {
   readonly webgl: THREE.WebGLRenderer;
   readonly theme: Theme;
   readonly views: ObjectViews;
+  readonly lod: Lod;
   readonly camera: CameraController;
   readonly framing: Framing;
   readonly picker: Picker;
@@ -53,6 +55,7 @@ export class Renderer {
     this.webgl = createWebGL(deps.canvas);
     const { store, revisionOf } = deps;
     this.views = new ObjectViews({ scene: this.parts.scene, store, revisionOf, materials: new MaterialCache() });
+    this.lod = new Lod(this.parts.scene, store);
     const { camera, sun, sunOffset } = this.parts;
     this.camera = new CameraController({ camera, canvas: deps.canvas, sun, sunOffset });
     this.framing = new Framing(this.camera, this.views);
@@ -91,6 +94,7 @@ export class Renderer {
     this.camera.update(dt);
     this.sky.update(skyDt, this.deps.store.world.objects);
     this.views.tickSpin();
+    this.lod.update(this.views.views, this.parts.camera, this.deps.stage.clientHeight || 600, dt);
     this.bubbles.update();
   }
 

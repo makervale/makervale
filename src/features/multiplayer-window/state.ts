@@ -18,6 +18,10 @@ export interface MpState {
   report: Report | null;
   checking: boolean;
   stopBrowse: (() => void) | null;
+  /** the folds (data-fold) open now */
+  folds: Set<string>;
+  /** what the Public tab last drew of the list and the relays (index.ts redraws it only when this changes) */
+  shownPublic: string;
 }
 
 export interface MpWindow {
@@ -39,4 +43,6 @@ export const emptyState = (): MpState => ({
   report: null,
   checking: false,
   stopBrowse: null,
+  folds: new Set(),
+  shownPublic: "",
 });

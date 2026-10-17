@@ -49,6 +49,7 @@ const EVENT_ARGS: Record<EventName, "number" | "word" | "none"> = {
   near: "number",
   hear: "word",
   bump: "none",
+  blocked: "none",
 };
 
 function parseEventArg(ts: TokenStream, ev: EventName): Expr | null {

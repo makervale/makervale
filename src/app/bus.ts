@@ -3,7 +3,8 @@ import type { Entry } from "@/world/history";
 /** Every event in the app, with what it carries. Names are "noun:verb". */
 export interface Events {
   /** objects changed (any of them); render and panels refresh */
-  "world:changed": { ids?: string[] };
+  /** `reverted`: the objects went back to how they were (an action cancelled or refused) */
+  "world:changed": { ids?: string[]; reverted?: boolean };
   /** an object is being dragged: only its transform moved, no history yet */
   "world:dragging": { ids: string[] };
   "selection:changed": undefined;
@@ -27,6 +28,11 @@ export interface Events {
   "room:ask": { id: string; name: string };
   /** the start screen's terms were accepted (or had been): features may now act on the address bar, consent… */
   "terms:accepted": undefined;
+  /** an action was undone because it broke the laws of space (app/space.ts); `text` says why */
+  "space:refused": { text: string };
+  /** turn the sand map on or off; "sandmap:changed" says what it is now */
+  "sandmap:set": { on: boolean };
+  "sandmap:changed": { on: boolean };
 
   /* requests between features (features never import each other) */
   /** run a tool by id: live tools start in the viewport, the rest run at once */

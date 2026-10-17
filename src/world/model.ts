@@ -134,3 +134,13 @@ export const findObj = (world: World, id: string): Obj | undefined => world.obje
 export function groupOf(world: World, o: Obj): Obj[] {
   return o.group ? world.objects.filter((p) => p.group === o.group) : [o];
 }
+
+/** these objects replace their namesakes (or join the end), and these go */
+export function upsert(world: World, set: Obj[], del: string[]): void {
+  world.objects = world.objects.filter((o) => !del.includes(o.id));
+  for (const o of set) {
+    const i = world.objects.findIndex((x) => x.id === o.id);
+    if (i >= 0) world.objects[i] = o;
+    else world.objects.push(o);
+  }
+}

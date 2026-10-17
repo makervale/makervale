@@ -650,3 +650,7 @@
     justify-content: flex-end;
   }
 }
+
+.mp-item.mp-heavy .mp-item-t span {
+  color: #e3b341;
+}

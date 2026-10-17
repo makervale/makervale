@@ -7,6 +7,7 @@ import { displayCode } from "@/net";
 import { people } from "./format";
 import { ownerHTML, rulesSentence } from "./owner-view";
 import { peopleHTML } from "./people-view";
+import type { ScriptShare } from "./owner-view";
 import type { Session } from "./port";
 
 const note = (bold: string, text = "") =>
@@ -20,7 +21,7 @@ function waiting(session: Session): string {
   if (net.vault.state === "loading") return note("Looking for the room…");
   return note(
     "Nobody is in this room right now",
-    "It isn't kept online, so it opens as soon as someone who has it comes in. You can wait here or leave.",
+    "It opens as soon as someone who has it comes in; a public room only when its owner does. You can wait here or leave.",
   );
 }
 
@@ -57,7 +58,13 @@ function meHTML(session: Session): string {
   return `<div class="mp-row mp-me-line"><span>You're watching: walk, chat and play.</span>${ask}</div>`;
 }
 
-export function roomHTML(name: string, shirt: string, session: Session): string {
+export function roomHTML(
+  name: string,
+  shirt: string,
+  session: Session,
+  scriptShare: ScriptShare,
+  folds: ReadonlySet<string>,
+): string {
   const net = session.net;
   const kind = net.rules?.kind ?? net.kind;
   const count = net.synced ? people(net.peers.size + 1) : "";
@@ -67,7 +74,7 @@ export function roomHTML(name: string, shirt: string, session: Session): string 
     ${shareHTML(session)}
     ${session.amOwner() ? "" : `<p class="note">${rulesSentence(session)}</p>`}
     ${meHTML(session)}
-    ${ownerHTML(session)}
+    ${ownerHTML(session, scriptShare, folds)}
     <h4>People here</h4>${peopleHTML(name, shirt, session)}
     <div class="mp-actions mp-end"><button class="btn" id="mp-copy-room" title="A private room of your own from this scene">Make a copy</button>
       <button class="btn" id="mp-leave">Leave</button></div>`;

@@ -4,8 +4,13 @@ import { readFileSync, writeFileSync, mkdirSync, cpSync } from 'node:fs';
 
 // a visible build stamp, so it's obvious which version is running (a downloaded copy doesn't update itself)
 const stamp = new Date().toISOString().slice(0, 16).replace('T', ' ') + ' UTC';
+// the mesh simplifier runs on its own thread: bundled first, then handed to the page as text (render/lod/)
+const worker = await build({
+  entryPoints: ['src/render/lod/worker.ts'], bundle: true, format: 'iife', target: 'es2020', write: false, minify: true,
+  legalComments: 'none', alias: { '@': './src' },
+});
 const res = await build({
-  define: { __BUILD__: JSON.stringify(stamp) },
+  define: { __BUILD__: JSON.stringify(stamp), __LOD_WORKER__: JSON.stringify(worker.outputFiles[0].text) },
   entryPoints: ['src/main.ts'], bundle: true, format: 'esm', target: 'es2020', write: false, minify: true,
   legalComments: 'none', alias: { '@': './src' },
 });

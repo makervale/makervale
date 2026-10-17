@@ -41,6 +41,8 @@ const MENUS: [string, Item[]][] = [
       null,
       ["Camera controls", "win:camfl"],
       ["Mesh edges on all objects", "wire"],
+      ["Sand map (where space is tight)", "sand"],
+      ["Limits (space and scripts)", "win:limits"],
       null,
       ["Midday", "time:day"],
       ["Sunset", "time:sunset"],

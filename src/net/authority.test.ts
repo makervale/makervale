@@ -32,4 +32,34 @@ describe("script authority", () => {
     );
     expect(new Set(seen)).toEqual(new Set(["e"]));
   });
+
+  it("prefers those who may build, so someone who may not never judges the room while a builder is here", () => {
+    const peers = [
+      { id: "a", synced: true },
+      { id: "b", synced: true },
+    ];
+    expect(pickAuthority("c", true, peers, (id) => id !== "a")).toBe("b");
+    expect(pickAuthority("c", true, peers, () => false)).toBe("a");
+  });
+
+  it("is the owner whenever the owner is here and synced, whatever the ids", () => {
+    const peers = [
+      { id: "a", synced: true },
+      { id: "z", synced: true },
+    ];
+    expect(pickAuthority("m", true, peers, () => true, "z")).toBe("z");
+    expect(pickAuthority("z", true, peers.slice(0, 1), () => true, "z")).toBe("z");
+    expect(
+      pickAuthority(
+        "m",
+        true,
+        [
+          { id: "a", synced: true },
+          { id: "z", synced: false },
+        ],
+        () => true,
+        "z",
+      ),
+    ).toBe("a");
+  });
 });

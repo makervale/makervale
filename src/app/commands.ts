@@ -8,6 +8,7 @@ import type { Bus } from "./bus";
 import type { SelectionSnapshot } from "./selection-snapshot";
 import { restoreSelection, snapshotSelection } from "./selection-snapshot";
 import type { Settings } from "./settings";
+import { Space } from "./space";
 import type { Store } from "./store";
 
 /** who is making a change: only the user's changes enter the undo history */
@@ -27,6 +28,8 @@ export class Commands {
   private held: string[] = [];
   /** how many times each mesh changed; the renderer rebuilds geometry when this moves */
   private readonly meshRevisions = new WeakMap<Mesh, number>();
+  /** the laws of space; a whole new scene is taken as it is (see replaceWorld) */
+  readonly space: Space;
 
   constructor(
     private readonly store: Store,
@@ -41,8 +44,11 @@ export class Commands {
         restoreSelection(store, s as SelectionSnapshot);
         this.selectionChanged();
       },
-      applied: (ids) => this.changed(ids),
+      applied: (ids, reverted) => this.changed(ids, reverted),
+      permits: (ids) => this.space.permits(ids, (text) => this.bus.emit("space:refused", { text })),
+      asIs: () => this.space.takingAsIs,
     });
+    this.space = new Space(store);
   }
 
   /* ---------- objects ---------- */
@@ -143,7 +149,7 @@ export class Commands {
       this.store.world.objects = world.objects;
       this.store.world.seq = Math.max(this.store.world.seq, world.seq);
     };
-    if (undoable) this.act(label, ids, swap);
+    if (undoable) this.space.takeAsIs(() => this.act(label, ids, swap));
     else {
       this.history.clear();
       this.apply(ids, swap);
@@ -233,12 +239,13 @@ export class Commands {
 
   /* ---------- internals ---------- */
 
-  private changed(ids: string[]): void {
+  private changed(ids: string[], reverted = false): void {
+    this.space.follow(ids);
     for (const id of ids) {
       const o = this.store.byId(id);
       if (o) this.meshChanged(o);
     }
-    this.bus.emit("world:changed", { ids });
+    this.bus.emit("world:changed", reverted ? { ids, reverted } : { ids });
   }
 
   private selectionChanged(): void {

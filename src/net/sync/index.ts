@@ -14,7 +14,7 @@ import { onSnap } from "./snapshot";
 
 export function listenAll(ctx: Ctx, link: Transport): void {
   link.on("hello", (d, from) => onHello(ctx, d, from));
-  link.on("snap", (d) => onSnap(ctx, d));
+  link.on("snap", (d, from) => void onSnap(ctx, d, from));
   link.on("vsnap", (_d, from) => void onVaultSnap(ctx, from));
   link.on("ask", (_d, from) => onAsk(ctx, from));
   link.on("objs", (d, from) => onObjs(ctx, d, from));

@@ -1,7 +1,9 @@
 /** The owner's settings in a room, and the tools against damage. Everyone else reads the settings as one sentence. */
 import { esc } from "@/ui/dom";
-import { objects } from "./format";
-import type { Session, VaultStatus } from "./port";
+import { fold, objects } from "./format";
+import type { Changer, Session, VaultStatus } from "./port";
+
+export type ScriptShare = (id: string) => number | null;
 
 interface Switch {
   id: string;
@@ -75,27 +77,43 @@ function kindRow(session: Session): string {
     <button class="btn small quiet" id="mp-kind" data-kind="public">Make it public</button></div>`;
 }
 
-function damageHTML(session: Session): string {
+/** what one person did here: how much they changed, how much their scripts take, and the owner's answers */
+function changerRow(c: Changer, scriptShare: ScriptShare, shown: boolean): string {
+  const who = esc(c.name) + (c.here ? "" : ` <i>(left)</i>`);
+  const shares = c.scripts.map(scriptShare);
+  const measured = shares.every((x) => x !== null);
+  const share = measured ? Math.round(shares.reduce((s: number, x) => s + (x ?? 0), 0)) : 0;
+  const count = `${c.scripts.length} script${c.scripts.length === 1 ? "" : "s"}`;
+  const scripts = c.scripts.length ? ` · ${count}${measured ? `, ${share}% of script time` : ""}` : "";
+  const name = esc(c.name);
+  return `<div class="mp-item${share >= 40 ? " mp-heavy" : ""}"><div class="mp-item-t"><b>${who}</b><span>changed ${objects(c.objects)}${scripts}</span></div>
+    <div class="mp-item-a"><button class="btn small${shown ? "" : " quiet"}" data-show="${esc(c.who)}" data-name="${name}" aria-pressed="${shown}" title="Select what they changed and look at it">${shown ? "Hide" : "Show"}</button>
+      <button class="btn small" data-undo="${esc(c.who)}" data-name="${name}">Undo their changes</button></div></div>`;
+}
+
+function damageHTML(session: Session, scriptShare: ScriptShare, folds: ReadonlySet<string>): string {
   const changers = session.changers();
   const reach = session.rewindReach();
   if (!changers.length && reach < 1) return "";
-  const rows = changers.map((c) => {
-    const who = esc(c.name) + (c.here ? "" : ` <i>(left)</i>`);
-    return `<div class="mp-item"><div class="mp-item-t"><b>${who}</b><span>changed ${objects(c.objects)}</span></div>
-      <div class="mp-item-a"><button class="btn small" data-undo="${esc(c.who)}" data-name="${esc(c.name)}">Undo their changes</button></div></div>`;
-  });
+  const rows = changers.map((c) => changerRow(c, scriptShare, session.showingChanges(c.who)));
   const minutes = [1, 5, 15, 30].map(
     (m) => `<button class="btn small" data-rewind="${m}" ${m > reach ? "disabled" : ""}>${m} min</button>`,
   );
-  return `<details class="mp-fold"><summary>Undo damage</summary>
+  return fold(
+    folds,
+    "changes",
+    "Who changed what",
+    `<p class="note">Everyone who changed something here this session, and how much of the room's script time their
+      scripts take. Show picks out their changes in the scene; Undo puts them back as they were.</p>
     ${rows.length ? `<div class="mp-items">${rows.join("")}</div>` : ""}
-    <div class="mp-row mp-rewind"><span class="note">Rewind the whole room</span>${minutes.join("")}</div></details>`;
+    <div class="mp-row mp-rewind"><span class="note">Rewind the whole room</span>${minutes.join("")}</div>`,
+  );
 }
 
-export function ownerHTML(session: Session): string {
+export function ownerHTML(session: Session, scriptShare: ScriptShare, folds: ReadonlySet<string>): string {
   if (!session.amOwner() || !session.net.rules) return "";
   const pub = session.net.rules.kind === "public";
-  return `<div class="mp-owner">${pub ? publicSwitches(session) : privateSwitches(session)}${kindRow(session)}</div>${damageHTML(session)}`;
+  return `<div class="mp-owner">${pub ? publicSwitches(session) : privateSwitches(session)}${kindRow(session)}</div>${damageHTML(session, scriptShare, folds)}`;
 }
 
 /** the owner's settings as everyone else sees them */

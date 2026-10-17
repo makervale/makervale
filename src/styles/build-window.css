@@ -478,6 +478,10 @@
   color: #ffb4a8;
   background: rgba(224, 60, 47, 0.12);
 }
+.sc-status.warn {
+  color: #f2d08a;
+  background: rgba(227, 179, 65, 0.1);
+}
 .sc-help summary {
   cursor: pointer;
   color: var(--mdgray);

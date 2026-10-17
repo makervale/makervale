@@ -3,6 +3,7 @@ import * as THREE from "three";
 import type { Obj } from "@/world/model";
 import { infoOf } from "./geometry";
 import type { ObjectViews } from "./objects";
+import { HIDDEN_LAYER } from "./lod/lod";
 
 export interface WorldHit {
   point: THREE.Vector3;
@@ -37,6 +38,9 @@ export class Picker {
   ) {
     this.ray.firstHitOnly = false;
     this.visibilityRay.firstHitOnly = true;
+    // a far object drawn in a simpler form still answers clicks with its full mesh (lod/lod.ts)
+    this.ray.layers.enable(HIDDEN_LAYER);
+    this.visibilityRay.layers.enable(HIDDEN_LAYER);
   }
 
   /** aim the shared raycaster at a client-space point */

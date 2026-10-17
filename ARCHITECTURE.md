@@ -37,6 +37,7 @@ src/
     store.ts              world, selection, settings: the single state object + typed getters
     bus.ts                typed events, "noun:verb"; also the requests features send each other
     commands.ts           the only writer: act (undoable), apply (remote/script), replaceWorld, selection
+    space.ts              the laws of space applied to the scene: what may stand, checked before an edit stands
     tools.ts, tool-runner.ts, tool-needs.ts   what a tool is, running one, "can it run now?"
     settings.ts, storage.ts
   lib/                    pure code, no DOM, no network
@@ -44,6 +45,8 @@ src/
     script/               the scripting language: lexer, parser, interpreter, builtins, templates
     physics/              a ball's step: gravity, contacts, bounce, roll, people pushing it
     rules/                signed room rules: private or public, who builds, who was removed, keep online
+    weight/               the laws of space: an object's weight, the sand ledger (density per place), the room's
+                          ceiling, and the sand map's shells
     vec.ts, text.ts
   world/                  the scene as data
     model.ts              Obj, Material, World
@@ -54,6 +57,7 @@ src/
     renderer.ts           composition root: scene, views, camera, picking, highlights, sky, bubbles
     objects.ts            Obj ↔ three.js mesh ("views")
     camera/               orbit, follow, framing (clear-view.ts keeps walls out of the shot)
+    lod/                  drawing far things simpler by pixel error, with a cross-fade; a worker simplifies meshes
     preview/              the little turning illustrations of tools
     bubbles/, picking.ts, pick-element.ts, highlights.ts, sky.ts, …
   avatar/                 bodies and motion
@@ -62,8 +66,9 @@ src/
     animator.ts, clips.*, gestures.ts, figure/, vrm/, collision.ts, movement.ts
   net/                    everything that leaves the browser (nothing does until net/online.ts is switched on)
     session.ts            createSession(): the one object the UI talks to (+ owner-api.ts, gallery-api.ts)
-    sync/                 one file per message family: hello, snapshot, objects, drag, avatars, chat, scripts, files
+    sync/                 one file per message family: hello, snapshot, objects, outbox, drag, avatars, chat, scripts, files
     rooms.ts, room-actions.ts, own-scene.ts, saved-rooms.ts, copies.ts   open / join / reopen / leave / copy
+    tab-lease.ts          one room at a time per browser (tabs of one browser are one person)
     rules.ts, owner-tools.ts, person.ts   what the signed rules mean, the owner's changes, who someone is
     moderation/           the owner's edit log: undo one person's changes, rewind the room
     public-rooms.ts, announcer.ts         the list of public rooms, while their owners are in them
@@ -83,9 +88,10 @@ src/
     viewport-input/       pointer and keyboard in the 3D view
     pie-menu/, menubar/, files/, camera-window/
     chat/, multiplayer-window/, avatar-window/, gestures/
+    limits-window/        how close the scene is to the limits of space and script time
     touch-controls/       joystick and fly up / down buttons on touch screens
     phone-mode/           the limited phone preview: html.phone, desktop-only windows, the first-visit card
-    scripts/              the script runtime (runs on the authority peer)
+    scripts/              the script runtime (runs on the authority peer); gas.ts: each script's share of a second
     physics/              bodies (balls): BVH contacts with the scene, sleeping, sync through net
     sound/                Web Audio: effects, footsteps, wind and birds, instruments for `play`
   ui/                     dumb widgets: dom.ts, window.ts, spinner.ts, toast.ts; device.ts (isPhone)
@@ -120,6 +126,19 @@ declares a small interface for it in its own `deps.ts` / `port.ts`, with exactly
   tagged `script` (not undoable, but synced).
 - Physics runs on every peer; the authority's result is the truth and is sent as body states a few times a
   second (`net/physics-bridge.ts`), so balls move smoothly everywhere and react at once when kicked.
+- The laws of space (`lib/weight`, `app/space.ts`) are one law for everyone, the owner included: an object weighs its
+  triangles plus half its vertices, spread over the 4 m cells it covers; no 20 m window may hold more than a set
+  amount, and the scene not more than a ceiling. A person's edit that breaks them is undone with a word why; a peer's
+  is judged by the room's authority alone (the owner whenever they are here, otherwise the builder with the smallest
+  id, `net/authority.ts`),
+  which sends its copy back as a verdict if it refuses (`net/sync/verdict.ts`):
+  everyone takes it, so every screen ends up with the same scene, and the person whose edit it was hears why; a scripted move doesn't happen (`on blocked`); a ball bounces off.
+  The authority has no more power than building gives: its verdicts are logged under it for the owner's
+  "who changed what", a script edit may only move, recolour or change the state of a scripted object, and a newcomer
+  takes the scene from the authority alone. What remains: while the owner is away, a peer posing as the authority
+  can show a newcomer a scene of its own; only that newcomer sees it, until they enter again.
+  A whole scene opened in your own scene, or a room's scene as you enter it, is taken as it is; inside a room nobody,
+  its owner included, brings in one over the law. Scripts don't weigh: they pay in gas, per second.
 - Saves (autosave, project files, saved rooms) keep scripted objects at rest (`world/resting.ts`): a reload
   starts every script fresh, so the lift is down and the door shut.
 

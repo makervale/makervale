@@ -3,6 +3,7 @@
  * head that lists it). Nothing of a room is published unless its owner does this; a room and its published world
  * go their own ways after.
  */
+import { fillOf } from "@/lib/weight";
 import type { World } from "@/world/model";
 import { APP_DATA_KIND, DELETION_KIND, nowSeconds, signedEventBy } from "../nostr";
 import { plainCodec } from "../pieces/codec";
@@ -52,6 +53,7 @@ export async function publishWorld(req: PublishRequest, previous: WorldHead | nu
     at: Date.now(),
     note: req.note.slice(0, 200),
     objects: req.world.objects.length,
+    fill: fillOf(req.world.objects),
     hash: await hashHex(enc.encode(content)),
   };
   const head = {

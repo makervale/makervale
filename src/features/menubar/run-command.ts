@@ -4,6 +4,7 @@ import { showWindow } from "@/ui/window";
 import type { MenubarDeps } from "./deps";
 import type { LocalCommand } from "./route";
 import { route, SKY_NOTE } from "./route";
+import type { SandMap } from "./sand-map";
 import type { Wireframe } from "./wireframe";
 
 declare const __BUILD__: string;
@@ -23,7 +24,12 @@ function deleteToolId(d: MenubarDeps): string {
   return s.edges.size ? "deledges" : "delverts";
 }
 
-function local(d: MenubarDeps, wire: Wireframe): Record<LocalCommand, () => void> {
+export interface Overlays {
+  wire: Wireframe;
+  sand: SandMap;
+}
+
+function local(d: MenubarDeps, { wire, sand }: Overlays): Record<LocalCommand, () => void> {
   const { store, commands, bus, renderer } = d;
   return {
     undo: () => commands.undo(),
@@ -37,12 +43,18 @@ function local(d: MenubarDeps, wire: Wireframe): Record<LocalCommand, () => void
     home: () => renderer.framing.home(store.visibleObjects()),
     search: () => bus.emit("search:open", {}),
     wire: () => toast(wire.toggle() ? "Mesh edges: shown" : "Mesh edges: hidden"),
+    sand: () =>
+      toast(
+        sand.toggle()
+          ? "Sand map: blue shells where space is 40% full, amber at 70%, red over the limit"
+          : "Sand map: hidden",
+      ),
     about: () => toast(ABOUT),
   };
 }
 
-export function commandRunner(d: MenubarDeps, wire: Wireframe): (command: string) => void {
-  const actions = local(d, wire);
+export function commandRunner(d: MenubarDeps, overlays: Overlays): (command: string) => void {
+  const actions = local(d, overlays);
   return (command) => {
     const r = route(command);
     if (r.kind === "tool") d.bus.emit("tool:use", { id: r.id });

@@ -18,9 +18,11 @@ import { kindOf, noVault } from "./state";
 import { fileForPeer } from "./sync/files";
 import { onPeerJoin, onPeerLeave } from "./sync/hello";
 import { listenAll } from "./sync/index";
-import { dropQueuedObjs } from "./sync/objects";
+import { resetDrags } from "./sync/drag";
+import { dropQueuedObjs } from "./sync/outbox";
 import { loadWorld } from "./sync/snapshot";
 import { openTransport } from "./transport";
+import { holdRoom, releaseRoom } from "./tab-lease";
 import { flushVault, resetVault } from "./vault";
 
 /** a public room whose owner doesn't show up in this long is closed */
@@ -35,6 +37,7 @@ function enter(ctx: Ctx, id: string): void {
   Object.assign(ctx.net, { id, chat: [], vault: noVault() });
   resetVault(ctx);
   resetModeration(ctx);
+  resetDrags(ctx);
   const link = openTransport(id, {
     accept: (pid) => !banned(ctx, pid),
     onJoinError: (reason) => system(ctx, "Could not connect to someone: " + reason),
@@ -52,8 +55,9 @@ function enter(ctx: Ctx, id: string): void {
 /** open a new room with the current scene; resolves with its code */
 export async function host(ctx: Ctx, name: string, kind: RoomKind, basedOn: Origin | null = null): Promise<string> {
   const id = newRoomCode();
+  if (await cantEnter(ctx, id)) return "";
   const n = ctx.net;
-  const rules = await ctx.rules.newRules(id, n.selfId, kind);
+  const rules = await orLetGo(ctx, ctx.rules.newRules(id, n.selfId, kind));
   stashOwnScene(ctx);
   Object.assign(n, { name, kind, synced: true, ver: 1, fresh: false, rules, pending: false });
   setOrigin(ctx, basedOn);
@@ -73,9 +77,31 @@ function expectOwner(ctx: Ctx, id: string): void {
   }, OWNER_WAIT_MS);
 }
 
+/** a step on the way into a room failed: the browser's room slot goes back, unless this tab is in a room already */
+async function orLetGo<T>(ctx: Ctx, step: Promise<T>): Promise<T> {
+  try {
+    return await step;
+  } catch (e) {
+    if (!inRoom(ctx)) releaseRoom();
+    throw e;
+  }
+}
+
+/** already in this room, or another tab of this browser is in a room: say so, and don't enter */
+async function cantEnter(ctx: Ctx, id: string): Promise<boolean> {
+  if (inRoom(ctx) && ctx.net.id === id) {
+    ctx.deps.commands.notice("You're already in this room.");
+    return true;
+  }
+  if (await holdRoom()) return false;
+  ctx.deps.commands.notice("Another tab of this browser is in a room. Use that tab, or leave the room there first.");
+  return true;
+}
+
 /** join by code; for a private room our saved copy is used when we have one */
 export async function join(ctx: Ctx, id: string, kind: RoomKind = "private", name = ""): Promise<void> {
-  const saved = await readSavedRoom(id);
+  if (await cantEnter(ctx, id)) return;
+  const saved = await orLetGo(ctx, readSavedRoom(id));
   stashOwnScene(ctx);
   if (saved && (saved.rules?.kind !== "public" || ctx.rules.ownsRules(saved.rules))) return reopenSaved(ctx, saved);
   const room = { name: name || "Room " + displayCode(id), kind, synced: false, ver: 0, fresh: false, rules: null };
@@ -89,8 +115,12 @@ export async function join(ctx: Ctx, id: string, kind: RoomKind = "private", nam
 }
 
 export async function reopen(ctx: Ctx, id: string): Promise<boolean> {
-  const saved = await readSavedRoom(id);
-  if (!saved) return false;
+  if (await cantEnter(ctx, id)) return true;
+  const saved = await orLetGo(ctx, readSavedRoom(id));
+  if (!saved) {
+    if (!inRoom(ctx)) releaseRoom();
+    return false;
+  }
   stashOwnScene(ctx);
   reopenSaved(ctx, saved);
   return true;
@@ -106,6 +136,8 @@ async function claimHost(ctx: Ctx, id: string): Promise<void> {
   n.rules = r;
   sendHello(ctx);
   buildMayHaveChanged(ctx, was);
+  // the host builds, so this visit may judge the room now
+  ctx.deps.scripts.resync();
   changed(ctx);
 }
 
@@ -139,6 +171,7 @@ export async function leave(ctx: Ctx): Promise<void> {
   void flushVault(ctx);
   await saveRoom(ctx);
   ctx.link = null;
+  releaseRoom();
   withdraw();
   dropQueuedObjs(ctx);
   forgetRoomState(ctx);

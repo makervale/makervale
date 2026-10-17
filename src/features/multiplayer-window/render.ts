@@ -15,14 +15,14 @@ function pageHTML(win: MpWindow): string {
   const s = win.state;
   switch (s.tab) {
     case "public":
-      return publicHTML(s.publicRooms, session.relayStatus());
+      return publicHTML(s.publicRooms, session.relayStatus(), session.inRoom() ? session.net.id : "");
     case "gallery":
       return galleryHTML(s, session.canPublish());
     case "settings":
       return settingsHTML(identity, session.turnPrefs(), s);
     default:
       return session.inRoom()
-        ? roomHTML(identity.name, identity.look.shirt, session)
+        ? roomHTML(identity.name, identity.look.shirt, session, win.deps.scriptShare, s.folds)
         : roomsHTML(identity, s.mine, s.invite);
   }
 }

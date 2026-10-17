@@ -53,7 +53,8 @@ export function onStart(win: MpWindow): void {
   }
   const again = tabRoom();
   if (again && session.networkAllowed() && !session.inRoom()) {
-    void session.join(again);
-    toast("Back in the room you were in before the page reloaded");
+    void session.join(again).then(() => {
+      if (session.inRoom()) toast("Back in the room you were in before the page reloaded");
+    });
   }
 }

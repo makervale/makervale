@@ -3,12 +3,15 @@
  * `focus`/`offset` are the target; `shownFocus`/`shownOffset` ease towards them every frame.
  */
 import * as THREE from "three";
+import { fitShadow } from "../scene";
 
 const DEG = Math.PI / 180;
 const HALF_LIFE_S = 0.08;
 const MIN_OFFSET_M = 0.05;
 const FOLLOW_DIST_RANGE_M: [number, number] = [1.5, 40];
 const MAX_DISTANCE_M = 1200;
+/** how far back the sun stands, in shadow half widths */
+const SUN_BACK_K = 1.5;
 
 const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
 
@@ -106,7 +109,9 @@ export class CameraController {
     camera.position.copy(this.shownFocus).add(this.shownOffset);
     camera.lookAt(this.shownFocus);
     camera.updateMatrixWorld();
-    sun.position.copy(this.shownFocus).add(sunOffset);
+    const extent = fitShadow(sun, this.shownOffset.length());
+    const back = Math.max(1, (extent * SUN_BACK_K) / sunOffset.length());
+    sun.position.copy(this.shownFocus).addScaledVector(sunOffset, back);
     sun.target.position.copy(this.shownFocus);
     sun.target.updateMatrixWorld();
   }

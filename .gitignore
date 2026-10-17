@@ -2,3 +2,4 @@ node_modules/
 dist/
 assets/avatars/*.thumb
 site/
+__pycache__/

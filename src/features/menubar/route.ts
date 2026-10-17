@@ -1,7 +1,7 @@
 /** Where a menu command goes: a tool, a window, the sky, another feature (over the bus), or the menu bar itself. */
 export type SkyMode = "day" | "sunset" | "night" | "cycle";
 
-const LOCAL = ["undo", "redo", "del", "desel", "focussel", "home", "search", "wire", "about"] as const;
+const LOCAL = ["undo", "redo", "del", "desel", "focussel", "home", "search", "wire", "sand", "about"] as const;
 export type LocalCommand = (typeof LOCAL)[number];
 
 /** handled by other features through "menu:command" (files, Tools panel) */

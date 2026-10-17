@@ -27,6 +27,10 @@ export interface ActEnv {
   play(o: Obj, note: number, instrument: string): void;
   /** where a person's avatar is (by name), or null */
   avatarAt(name: string): Vec3 | null;
+  /** would the object fit there? (the laws of space: a move can't pile it where it's already too dense) */
+  fits(o: Obj, pose: Placement): boolean;
+  /** a move didn't fit: the script hears "blocked" */
+  blocked(o: Obj): void;
 }
 
 export interface Act {
@@ -58,6 +62,10 @@ function go(c: Act, pos: Vec3, quat: Fx["quat"], size: Vec3, pv?: number[]): num
   const away = sub(pos, home);
   const target = length(away) > LEASH_M ? add(home, scale(normalize(away), LEASH_M)) : pos;
   const clamped = size.map((v) => clamp(v, MIN_SIZE_M, MAX_SIZE_M)) as Vec3;
+  if (!c.env.fits(o, { pos: target, quat, size: clamped })) {
+    c.env.blocked(o);
+    return 0;
+  }
   const fx: Fx = { id: o.id, pos: target, quat, size: clamped, d: c.dur };
   if (pv) fx.pv = pv;
   c.env.go(o, fx);

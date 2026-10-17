@@ -96,3 +96,44 @@ describe("Commands", () => {
     expect(notices.at(-1)).toMatch(/locked/);
   });
 });
+
+describe("the laws of space", () => {
+  /** a heavy fan of triangles */
+  const heavy = (tris: number) => {
+    const v: [number, number, number][] = [
+      [0, 0, 0],
+      [1, 0, 0],
+    ];
+    const f: number[][] = [];
+    for (let i = 0; i < tris; i++) {
+      v.push([i / tris, 1, 0]);
+      f.push([0, 1, v.length - 1]);
+    }
+    return { v, f, fm: f.map(() => 0) };
+  };
+
+  it("undoes an action that piles too much in one place, and says why", () => {
+    const { store, commands, bus } = setup();
+    const refused: string[] = [];
+    bus.on("space:refused", ({ text }) => refused.push(text));
+    const add = () =>
+      commands.act("Add", [], () => {
+        store.world.objects.push(newObj(store.world, heavy(12_000), [0, 0, 0], [1, 1, 1]));
+      });
+    add();
+    add();
+    const before = store.world.objects.length;
+    expect(add()).toBeNull();
+    expect(store.world.objects.length).toBe(before);
+    expect(refused.at(-1)).toMatch(/won't fit/);
+  });
+
+  it("takes a whole new scene as it is", () => {
+    const { store, commands } = setup();
+    const w = { seq: 1, objects: [] as ReturnType<typeof newObj>[] };
+    for (let i = 0; i < 5; i++) w.objects.push(newObj(w, heavy(12_000), [0, 0, 0], [1, 1, 1]));
+    commands.replaceWorld(w, "Open", true);
+    expect(store.world.objects.length).toBe(5);
+    expect(commands.space.ledger.fullest()).toBeGreaterThan(1);
+  });
+});

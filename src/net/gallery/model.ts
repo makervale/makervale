@@ -17,6 +17,8 @@ export interface VersionInfo {
   at: number;
   note: string;
   objects: number;
+  /** share of a room's ceiling, % (lib/weight fillOf); null from older versions */
+  fill: number | null;
   /** sha256 of the version event's content */
   hash: string;
 }
@@ -52,6 +54,7 @@ function cleanVersion(x: unknown): VersionInfo | null {
     at: cleanNum(d.at, 0, 1e15) ?? 0,
     note: cleanText(d.note, 200),
     objects: cleanNum(d.objects, 0, 1e6) ?? 0,
+    fill: cleanNum(d.fill, 0, 100),
     hash: d.hash,
   };
 }

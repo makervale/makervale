@@ -13,6 +13,7 @@ import type { PeerState } from "../state";
 import { kindOf, newPeer } from "../state";
 import { keepMyVersion } from "../copies";
 import { sendAvatar } from "./avatars";
+import { forgetPeer } from "./gone";
 import { MAX_COUNTER, sendSnapshot } from "./snapshot";
 
 export function onPeerJoin(ctx: Ctx, pid: string): void {
@@ -28,12 +29,9 @@ export function onPeerJoin(ctx: Ctx, pid: string): void {
 
 export function onPeerLeave(ctx: Ctx, pid: string): void {
   const p = ctx.net.peers.get(pid);
-  if (!p) return;
-  ctx.deps.peers.remove(pid);
-  ctx.net.peers.delete(pid);
+  if (!p || !forgetPeer(ctx, pid)) return;
   system(ctx, p.name + " left");
   if (ownerLeftPublicRoom(ctx, pid)) return;
-  ctx.deps.scripts.resync();
   changed(ctx);
 }
 
@@ -108,7 +106,6 @@ export function onHello(ctx: Ctx, raw: unknown, pid: string): void {
   if (!wasName) system(ctx, p.name + " is here");
   learnRoom(ctx, d);
   yieldToBetterCopy(ctx, p);
-  // the synced peer with the smallest id answers a newcomer with the scene
   if (n.synced && !p.synced && authorityId(ctx) === n.selfId) sendSnapshot(ctx, pid);
   ctx.deps.scripts.resync();
   changed(ctx);

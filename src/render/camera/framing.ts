@@ -1,6 +1,7 @@
 /** Framing: fit a set of objects into the view, from the current direction or a preset one. */
 import * as THREE from "three";
 import type { Obj } from "@/world/model";
+import { HIDDEN_LAYER } from "../lod/lod";
 import type { ObjectViews } from "../objects";
 import type { RayCast } from "./clear-view";
 import { clearView } from "./clear-view";
@@ -28,6 +29,7 @@ export class Framing {
     private readonly views: ObjectViews,
   ) {
     this.ray.firstHitOnly = true;
+    this.ray.layers.enable(HIDDEN_LAYER);
   }
 
   /** bring the objects into view, optionally from a direction; an empty list frames the origin */

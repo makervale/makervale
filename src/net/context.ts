@@ -8,6 +8,7 @@ import type { Store } from "@/app/store";
 import type { Look } from "@/avatar/look";
 import type { KeyStore, RulesApi } from "@/lib/rules";
 import { pickAuthority } from "./authority";
+import { canBuild } from "./rights";
 import type { ActionName, HelloMsg, Messages } from "./messages";
 import type { AvatarSnapshot, PeerBodies } from "./peers";
 import type { PhysicsBridge } from "./physics-bridge";
@@ -81,17 +82,13 @@ export function sendHello(ctx: Ctx, target?: string): void {
   send(ctx, "hello", helloMsg(ctx), target);
 }
 
-/** a public room runs on its owner's computer, and only while the owner is in it; "" then means nobody */
-function publicAuthority(n: NetState): string {
-  const host = n.rules?.host ?? "";
-  if (host === n.selfId) return n.synced ? host : "";
-  return n.peers.get(host)?.synced ? host : "";
+/** see authority.ts; a public room runs only on its owner's computer: without the owner, "" (nobody) */
+export function authorityId(ctx: Ctx): string {
+  const n = ctx.net;
+  const owner = n.rules?.host ?? "";
+  const id = pickAuthority(n.selfId, n.synced, n.peers.values(), (pid) => canBuild(ctx, pid), owner);
+  return kindOf(n) === "public" && id !== owner ? "" : id;
 }
-
-export const authorityId = (ctx: Ctx): string =>
-  kindOf(ctx.net) === "public"
-    ? publicAuthority(ctx.net)
-    : pickAuthority(ctx.net.selfId, ctx.net.synced, ctx.net.peers.values());
 
 /** should scripts run here? always outside rooms; in a room only on the authority, once it has the scene */
 export const amAuthority = (ctx: Ctx): boolean =>

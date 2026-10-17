@@ -4,7 +4,7 @@ import { emptyWorld, newObj } from "./model";
 
 const box = () => ({ v: [[0, 0, 0] as [number, number, number]], f: [[0]], fm: [0] });
 
-function setup() {
+function setup(permits?: () => boolean) {
   const world = emptyWorld();
   const applied: string[][] = [];
   let selection: unknown = "sel0";
@@ -15,6 +15,7 @@ function setup() {
       selection = s;
     },
     applied: (ids) => applied.push(ids),
+    permits,
   });
   return { world, history, applied, selection: () => selection };
 }
@@ -69,5 +70,68 @@ describe("History", () => {
     history.end();
     history.undo();
     expect(world.objects.map((o) => o.id)).toEqual([a.id, b.id]);
+  });
+
+  it("an undo the laws refuse doesn't happen, and stays on the stack", () => {
+    let allowed = true;
+    const { world, history } = setup(() => allowed);
+    const o = newObj(world, box(), [0, 0, 0], [1, 1, 1]);
+    world.objects.push(o);
+    history.begin("Move", [o.id]);
+    o.pos = [5, 0, 0];
+    history.end();
+    allowed = false;
+    expect(history.undo()).toBeNull();
+    expect(world.objects[0].pos).toEqual([5, 0, 0]);
+    allowed = true;
+    expect(history.undo()).not.toBeNull();
+    expect(world.objects[0].pos).toEqual([0, 0, 0]);
+  });
+
+  it("a re-run the laws refuse leaves the run it replaced", () => {
+    let allowed = true;
+    const { world, history } = setup(() => allowed);
+    const o = newObj(world, box(), [0, 0, 0], [1, 1, 1]);
+    world.objects.push(o);
+    history.begin("Move", [o.id]);
+    o.pos = [5, 0, 0];
+    history.end({ id: "move", params: { x: 5 } });
+    history.revertLastForRerun();
+    allowed = false;
+    history.begin("Move", [o.id]);
+    world.objects[0].pos = [50, 0, 0];
+    expect(history.end({ id: "move", params: { x: 50 } })).toBeNull();
+    expect(world.objects[0].pos).toEqual([5, 0, 0]);
+    expect(history.last()?.tool?.params).toEqual({ x: 5 });
+  });
+
+  it("a re-run reports what the run it replaced made, as gone now", () => {
+    const { world, history, applied } = setup(() => true);
+    history.begin("Add", []);
+    const first = newObj(world, box(), [0, 0, 0], [1, 1, 1]);
+    world.objects.push(first);
+    history.end({ id: "add", params: { n: 1 } });
+    history.revertLastForRerun();
+    history.begin("Add", []);
+    const second = newObj(world, box(), [0, 0, 0], [1, 1, 1]);
+    world.objects.push(second);
+    history.end({ id: "add", params: { n: 2 } });
+    expect(world.objects.map((o) => o.id)).toEqual([second.id]);
+    expect(applied.at(-1)).toEqual(expect.arrayContaining([first.id, second.id]));
+  });
+
+  it("a refused undo leaves the scene as it is now, changes others made since included", () => {
+    let allowed = true;
+    const { world, history } = setup(() => allowed);
+    const o = newObj(world, box(), [0, 0, 0], [1, 1, 1]);
+    world.objects.push(o);
+    history.begin("Move", [o.id]);
+    o.pos = [5, 0, 0];
+    history.end();
+    // a peer moved it since
+    world.objects[0].pos = [9, 9, 9];
+    allowed = false;
+    expect(history.undo()).toBeNull();
+    expect(world.objects[0].pos).toEqual([9, 9, 9]);
   });
 });

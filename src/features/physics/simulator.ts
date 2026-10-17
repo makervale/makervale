@@ -135,14 +135,27 @@ export class Physics implements PhysicsBridge {
     if (l.asleep && !pushed && length(l.error) < 1e-4) return false;
     const hits = stepBall(s, shape, dt, (p, r) => this.probe.contacts(p, r, o.id));
     s.vel = clampSpeed(s.vel);
-    o.quat = rollQuat(o.quat, s.vel, shape.radius, dt);
-    o.pos = s.pos[2] < FELL_OFF_Z_M ? [...l.start] : s.pos;
-    l.vel = s.pos[2] < FELL_OFF_Z_M ? [0, 0, 0] : s.vel;
+    this.land(o, l, s, shape, dt);
     this.correct(o, l, dt);
     l.lastPos = [...o.pos];
     for (const b of this.bumps(o.id, hits, this.clock)) this.deps.bus.emit("object:bumped", b);
     this.settle(l, hits.length > 0, dt);
     return true;
+  }
+
+  /** where a step takes the body: back off a place too full, back to its start if it fell off the world */
+  private land(o: Obj, l: Live, s: { pos: Vec3; vel: Vec3 }, shape: { radius: number; bounce: number }, dt: number) {
+    if (!this.deps.commands.space.moveTo(o, s.pos)) {
+      // the space ahead is too full: it bounces back as off a wall
+      s.pos = [...o.pos];
+      s.vel = scale(s.vel, -shape.bounce);
+    }
+    o.quat = rollQuat(o.quat, s.vel, shape.radius, dt);
+    const fell = s.pos[2] < FELL_OFF_Z_M;
+    o.pos = fell ? [...l.start] : s.pos;
+    l.vel = fell ? [0, 0, 0] : s.vel;
+    // back at the start: the sand it weighs lies there now, not where it fell
+    if (fell) this.deps.commands.space.follow([o.id]);
   }
 
   /** a body that has barely moved for a while goes to sleep until something pushes it */

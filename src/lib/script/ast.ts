@@ -68,7 +68,7 @@ export function actionSpec(name: string): ActionSpec | undefined {
   return Object.hasOwn(ACTIONS, name) ? ACTIONS[name] : undefined;
 }
 
-export const EVENTS = ["start", "touch", "timer", "near", "hear", "bump"] as const;
+export const EVENTS = ["start", "touch", "timer", "near", "hear", "bump", "blocked"] as const;
 export type EventName = (typeof EVENTS)[number];
 
 export function isEvent(name: string): name is EventName {

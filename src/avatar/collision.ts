@@ -1,5 +1,6 @@
 /** Rays against the world for the avatar: the ground under a point, walls in the way, a backrest to lean on. */
 import * as THREE from "three";
+import { HIDDEN_LAYER } from "@/render/lod/lod";
 
 /** the highest step you walk up without jumping, metres */
 export const STEP_HEIGHT_M = 0.5;
@@ -27,6 +28,8 @@ export class Collider {
 
   constructor() {
     this.ray.firstHitOnly = true;
+    // what is drawn simpler from afar is still solid as it is
+    this.ray.layers.enable(HIDDEN_LAYER);
   }
 
   groundAt(x: number, y: number, fromZ: number, solids: THREE.Object3D[]): GroundHit {

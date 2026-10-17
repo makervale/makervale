@@ -5,31 +5,15 @@
  */
 import type { Ctx } from "./context";
 import { changed, inRoom, sendHello, system } from "./context";
-import { myPersonKey } from "./person";
 import { saveRoom } from "./saved-rooms";
 import { kindOf } from "./state";
+import { forgetPeer } from "./sync/gone";
 
 const DROP_AFTER_MS = 2500;
 
-/** how the rules name someone: their key for this room, or their visit until they proved one */
-export function personOf(ctx: Ctx, pid: string): string {
-  const n = ctx.net;
-  if (pid === n.selfId) return myPersonKey(n.id);
-  return n.peers.get(pid)?.person || "peer:" + pid;
-}
+import { banned, canBuild, personOf } from "./rights";
 
-export function banned(ctx: Ctx, pid: string): boolean {
-  const list = ctx.net.rules?.banned;
-  return !!list && (list.includes(personOf(ctx, pid)) || list.includes("peer:" + pid));
-}
-
-export function canBuild(ctx: Ctx, pid: string): boolean {
-  const r = ctx.net.rules;
-  if (!r || pid === r.host) return true;
-  const who = personOf(ctx, pid);
-  if (banned(ctx, pid) || r.deny.includes(who)) return false;
-  return r.allow.includes(who) || r.build === "all";
-}
+export { banned, canBuild, personOf };
 
 /** never in a world you are only viewing; always in your own scene */
 export const canIBuild = (ctx: Ctx): boolean => !ctx.net.viewing && (!inRoom(ctx) || canBuild(ctx, ctx.net.selfId));
@@ -41,7 +25,7 @@ export const ownerId = (ctx: Ctx): string => ctx.net.rules?.host ?? "";
 
 export function dropPeer(ctx: Ctx, pid: string): void {
   ctx.link?.drop(pid);
-  if (ctx.net.peers.delete(pid)) ctx.deps.peers.remove(pid);
+  forgetPeer(ctx, pid);
 }
 
 /** rules that arrived from a peer: only signed ones for this room, from the first owner seen, and only newer */
@@ -67,8 +51,7 @@ function removeBanned(ctx: Ctx): void {
   for (const [pid, p] of [...ctx.net.peers]) {
     if (!banned(ctx, pid)) continue;
     system(ctx, (p.name || "Someone") + " was removed by the owner");
-    ctx.net.peers.delete(pid);
-    ctx.deps.peers.remove(pid);
+    forgetPeer(ctx, pid);
     setTimeout(() => ctx.link?.drop(pid), DROP_AFTER_MS);
   }
 }
